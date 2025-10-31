@@ -1,1 +1,1 @@
-public enum SwiftHTTPieDocsModule {}
+public enum SwiftPieDocsModule {}

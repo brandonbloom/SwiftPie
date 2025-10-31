@@ -1,6 +1,6 @@
-This document describes the concept of the SwiftHTTPie project.
+This document describes the concept of the SwiftPie project.
 
-SwiftHTTPie provides two things:
+SwiftPie provides two things:
 
 1. A Swift implementation of an HTTPie-like CLI tool.
 2. A library for constructing "clientless" HTTPie-like CLI tools compatible with Vapor.

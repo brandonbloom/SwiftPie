@@ -1,4 +1,4 @@
-SwiftHTTPie Delivery Plan
+SwiftPie Delivery Plan
 =========================
 
 Workflow Guardrails
@@ -15,7 +15,7 @@ Phase Roadmap
 -------------
 
 ### Phase 001 — CLI Skeleton and Package Scaffolding ✅
-- Outcome: SwiftPM workspace now includes `SwiftHTTPie` and `SwiftHTTPieCLI`, a placeholder `SwiftHTTPie.main` that terminates with the computed exit code, and a smoke test script (`scripts/smoke-cli.sh`). Details captured in `context/phase-001.md`.
+- Outcome: SwiftPM workspace now includes `SwiftPie` and `SwiftPieCLI`, a placeholder `SwiftPie.main` that terminates with the computed exit code, and a smoke test script (`scripts/smoke-cli.sh`). Details captured in `context/phase-001.md`.
 - Follow-ups: None pending before Phase 002; CLI exits successfully and tooling is ready for request-parsing work.
 
 ### Phase 002 — Request Parsing and HTTP Request Construction
@@ -23,9 +23,9 @@ Phase Roadmap
 - In-progress scope:
   - ✅ Core parsing helpers for verbs, query args, shorthands, and localhost normalization (ported into `RequestParser` with Swift Testing specs).
   - 🔜 Extend coverage for remaining HTTPie shorthands (file embeds, raw JSON/file references, duplicate headers/data arrays) and map to a richer request model compatible with `swift-http-types`.
-  - 🔜 Surface validation diagnostics (unknown separators, invalid URLs, mutually exclusive flags) through `SwiftHTTPieCLI` with non-zero exit codes and stderr output.
+  - 🔜 Surface validation diagnostics (unknown separators, invalid URLs, mutually exclusive flags) through `SwiftPieCLI` with non-zero exit codes and stderr output.
   - 🔜 Bridge the parsed request into an internal representation that Phase 003 can hand to the transport layer.
-- Candidate test plan: Expand unit specs for each shorthand permutation, add CLI-level tests that execute `SwiftHTTPie` via the Testing process APIs, and capture stderr/exit codes for invalid inputs.
+- Candidate test plan: Expand unit specs for each shorthand permutation, add CLI-level tests that execute `SwiftPie` via the Testing process APIs, and capture stderr/exit codes for invalid inputs.
 - Exit artifact: Append findings and review notes to `context/phase-002.md`.
 
 ### Phase 003 — Transport Hook & Response Handling
@@ -55,7 +55,7 @@ Phase Roadmap
 - Exit artifact: Track progress in `context/phase-006.md`.
 
 ### Phase 007 — Peer Library & Example CLI
-- Objective: Deliver the reusable peer-mode workflow described in `context/swifthttpie.md` and showcase it with a Vapor-backed example that reuses the in-process test server responders.
+- Objective: Deliver the reusable peer-mode workflow described in `context/swiftpie.md` and showcase it with a Vapor-backed example that reuses the in-process test server responders.
 - Proposed scope to confirm with user: Define the public API for embedding responders (swift-http-types based) and create an example executable (`Examples/PeerDemo` or similar) that runs the test server endpoints in peer mode.
 - Candidate test plan: Unit specs for the peer adapter, a smoke test for the example CLI, and documentation snippets validated via doctests or executable previews.
 - Exit artifact: Track progress in `context/phase-007.md`, including API diagrams and example wiring notes.

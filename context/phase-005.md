@@ -3,7 +3,7 @@
 ## Objectives
 - Replace the placeholder `PendingTransport` with a real HTTP client backed by `URLSession`.
 - Preserve Phase 002 semantics for data, files, and header removals when constructing the outgoing request.
-- Integrate the transport into the default CLI context so `SwiftHTTPie` performs live requests.
+- Integrate the transport into the default CLI context so `SwiftPie` performs live requests.
 
 ## Implementation Highlights
 - Added `URLSessionTransport` that synchronously bridges `URLSession` onto the existing `RequestTransport` protocol. It encodes bodies as multipart form data (when files are present), JSON (when any `:=` item is supplied), or URL-encoded form data (for plain `=` items). Default `Content-Type` headers respect user overrides/removals.

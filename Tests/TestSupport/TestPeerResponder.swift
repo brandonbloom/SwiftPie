@@ -1,7 +1,7 @@
 import Foundation
 import HTTPTypes
 import NIOHTTP1
-import SwiftHTTPie
+import SwiftPie
 
 private struct PeerResponderInput {
     var method: HTTPRequest.Method

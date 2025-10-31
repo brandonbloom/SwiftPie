@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import SwiftHTTPieTestSupport
+import SwiftPieTestSupport
 
 @Suite("NIO HTTP test server")
 struct NIOHTTPTestServerTests {

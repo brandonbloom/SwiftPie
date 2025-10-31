@@ -1,7 +1,7 @@
 import Foundation
 import HTTPTypes
 import Testing
-@testable import SwiftHTTPie
+@testable import SwiftPie
 
 @Suite("Peer transport")
 struct PeerTransportTests {

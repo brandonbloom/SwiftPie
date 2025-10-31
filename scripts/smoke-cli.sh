@@ -6,11 +6,11 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${PROJECT_ROOT}"
 
-echo "Building SwiftHTTPie CLI..."
+echo "Building SwiftPie CLI..."
 swift build > /dev/null
 
-echo "Running SwiftHTTPie smoke test..."
-if swift run swift-httpie --help > /dev/null; then
+echo "Running SwiftPie smoke test..."
+if swift run spie --help > /dev/null; then
   echo "Smoke test passed."
 else
   echo "Smoke test failed." >&2

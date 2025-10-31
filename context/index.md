@@ -1,8 +1,9 @@
 # Context Overview
 
 ## Documents
-- [./concept.md](./concept.md) -- High-level SwiftHTTPie project concept.
-- [./swifthttpie.md](./swifthttpie.md) -- Working vision, workflow, and feature priorities.
+- [./concept.md](./concept.md) -- High-level SwiftPie project concept.
+- [./swiftpie.md](./swiftpie.md) -- Working vision, workflow, and feature priorities.
+- [./naming.md](./naming.md) -- Notes on project branding decisions and executable naming.
 - [./feature-checklist.md](./feature-checklist.md) -- HTTPie vs httpie-go feature parity checklist with Swift priorities.
 - [./plan.md](./plan.md) -- Incremental delivery plan and phase workflow checkpoints.
 - [./coding-guidelines.md](./coding-guidelines.md) -- Language and contribution guidelines.

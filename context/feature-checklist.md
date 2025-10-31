@@ -1,4 +1,4 @@
-SwiftHTTPie Feature Checklist
+SwiftPie Feature Checklist
 =============================
 
 Legend:

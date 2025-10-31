@@ -1,7 +1,7 @@
 import Foundation
 import HTTPTypes
-import SwiftHTTPie
-import SwiftHTTPieTestSupport
+import SwiftPie
+import SwiftPieTestSupport
 
 @main
 struct PeerDemo {
@@ -12,7 +12,7 @@ struct PeerDemo {
         let context = CLIContext(transport: transport)
 
         let normalizedArguments = normalize(CommandLine.arguments, baseURL: baseURL)
-        let exitCode = SwiftHTTPie.run(arguments: normalizedArguments, context: context)
+        let exitCode = SwiftPie.run(arguments: normalizedArguments, context: context)
         exit(Int32(exitCode))
     }
 

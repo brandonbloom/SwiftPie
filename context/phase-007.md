@@ -1,7 +1,7 @@
 # Phase 007 Notes — Peer Library & Example CLI
 
 ## Objectives
-- Provide a reusable peer-mode workflow that lets SwiftHTTPie-style responders run in-process without hitting the network.
+- Provide a reusable peer-mode workflow that lets SwiftPie-style responders run in-process without hitting the network.
 - Reuse the existing in-process test server responders to power an example executable showcasing the architecture.
 - Document the public API surface with README guidance for users plus DocC coverage for the public symbols.
 
@@ -21,10 +21,10 @@
 - Extend `scripts/smoke-cli.sh` so it also runs the `PeerDemo` executable (e.g. `swift run PeerDemo /get`) after the existing CLI help check, keeping a single entry point for manual smoke validation.
 
 ## Open Questions
-- Keep the example CLI minimal, consuming only the public SwiftHTTPie interface and reusing the test server’s entrypoint without private wiring.
+- Keep the example CLI minimal, consuming only the public SwiftPie interface and reusing the test server’s entrypoint without private wiring.
 
 ## 2025-10-31 Progress
-- Added `PeerTransport`, `PeerRequest`, and `PeerRequestBody` to `SwiftHTTPie` with shared request-body encoding helpers extracted from `URLSessionTransport`.
+- Added `PeerTransport`, `PeerRequest`, and `PeerRequestBody` to `SwiftPie` with shared request-body encoding helpers extracted from `URLSessionTransport`.
 - Refactored the in-process NIO test server to delegate to a shared `TestPeerResponder`, enabling responder reuse across tests and the new `PeerDemo` example.
 - Introduced `PeerTransportTests` and updated existing integration tests to exercise the shared responder path; `swift test` now covers peer-mode flows.
 - Created the `PeerDemo` executable plus README/DocC documentation and extended `scripts/smoke-cli.sh` to smoke both executables.

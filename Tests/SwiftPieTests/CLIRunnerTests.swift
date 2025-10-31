@@ -6,28 +6,28 @@ import Glibc
 
 import HTTPTypes
 import Testing
-@testable import SwiftHTTPie
+@testable import SwiftPie
 
 @Suite("CLI runner")
 struct CLIRunnerTests {
     @Test("Displays help when no arguments are supplied")
     func displaysHelpForEmptyArguments() {
         let console = ConsoleRecorder()
-        let exitCode = SwiftHTTPie.run(
-            arguments: ["SwiftHTTPie"],
+        let exitCode = SwiftPie.run(
+            arguments: ["spie"],
             context: CLIContext(console: console, input: NonInteractiveInput())
         )
 
         #expect(exitCode == 0)
-        #expect(console.output.contains("usage: SwiftHTTPie"))
+        #expect(console.output.contains("usage: spie"))
         #expect(console.error.isEmpty)
     }
 
     @Test("Reports parser errors to stderr with usage exit code")
     func reportsParserErrors() {
         let console = ConsoleRecorder()
-        let exitCode = SwiftHTTPie.run(
-            arguments: ["SwiftHTTPie", "invalid::token"],
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "invalid::token"],
             context: CLIContext(console: console, input: NonInteractiveInput())
         )
 
@@ -46,9 +46,9 @@ struct CLIRunnerTests {
         )
         transport.queue(result: .success(response))
 
-        let exitCode = SwiftHTTPie.run(
+        let exitCode = SwiftPie.run(
             arguments: [
-                "SwiftHTTPie",
+                "spie",
                 "POST",
                 "https://example.com/path",
                 "Authorization:Bearer token",
@@ -94,8 +94,8 @@ struct CLIRunnerTests {
         let transport = TransportRecorder()
         transport.queue(result: .failure(.networkError("unreachable host")))
 
-        let exitCode = SwiftHTTPie.run(
-            arguments: ["SwiftHTTPie", "https://example.com"],
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "https://example.com"],
             context: CLIContext(
                 console: console,
                 input: NonInteractiveInput(),
@@ -111,8 +111,8 @@ struct CLIRunnerTests {
     @Test("Reports unknown options before attempting to parse the request")
     func reportsUnknownOptions() {
         let console = ConsoleRecorder()
-        let exitCode = SwiftHTTPie.run(
-            arguments: ["SwiftHTTPie", "--unknown", "localhost"],
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--unknown", "localhost"],
             context: CLIContext(console: console, input: NonInteractiveInput())
         )
 
@@ -131,8 +131,8 @@ struct CLIRunnerTests {
         )
         transport.queue(result: .success(notFound))
 
-        let exitCode = SwiftHTTPie.run(
-            arguments: ["SwiftHTTPie", "https://example.com/missing"],
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "https://example.com/missing"],
             context: CLIContext(
                 console: console,
                 input: NonInteractiveInput(),
@@ -156,9 +156,9 @@ struct CLIRunnerTests {
         )
         transport.queue(result: .success(response))
 
-        let exitCode = SwiftHTTPie.run(
+        let exitCode = SwiftPie.run(
             arguments: [
-                "SwiftHTTPie",
+                "spie",
                 "-a",
                 "user:pass",
                 "https://example.com"
@@ -189,9 +189,9 @@ struct CLIRunnerTests {
 
         let input = InteractiveInput(lines: ["secret\n"])
 
-        let exitCode = SwiftHTTPie.run(
+        let exitCode = SwiftPie.run(
             arguments: [
-                "SwiftHTTPie",
+                "spie",
                 "--auth",
                 "user",
                 "https://example.com"
@@ -217,9 +217,9 @@ struct CLIRunnerTests {
         let transport = TransportRecorder()
         transport.queue(result: .failure(.internalFailure("should not be used")))
 
-        let exitCode = SwiftHTTPie.run(
+        let exitCode = SwiftPie.run(
             arguments: [
-                "SwiftHTTPie",
+                "spie",
                 "--ignore-stdin",
                 "--auth",
                 "user",
@@ -247,9 +247,9 @@ struct CLIRunnerTests {
         )
         transport.queue(result: .success(response))
 
-        let exitCode = SwiftHTTPie.run(
+        let exitCode = SwiftPie.run(
             arguments: [
-                "SwiftHTTPie",
+                "spie",
                 "--auth-type=bearer",
                 "--auth",
                 "token",
@@ -279,9 +279,9 @@ struct CLIRunnerTests {
         )
         transport.queue(result: .success(response))
 
-        let exitCode = SwiftHTTPie.run(
+        let exitCode = SwiftPie.run(
             arguments: [
-                "SwiftHTTPie",
+                "spie",
                 "--timeout=2.5",
                 "--verify=false",
                 "--http1",
@@ -305,9 +305,9 @@ struct CLIRunnerTests {
     @Test("Rejects invalid timeout values")
     func rejectsInvalidTimeoutValues() {
         let console = ConsoleRecorder()
-        let exitCode = SwiftHTTPie.run(
+        let exitCode = SwiftPie.run(
             arguments: [
-                "SwiftHTTPie",
+                "spie",
                 "--timeout=not-a-number",
                 "https://example.com"
             ],
@@ -324,9 +324,9 @@ struct CLIRunnerTests {
     @Test("Rejects unknown auth types")
     func rejectsUnknownAuthTypes() {
         let console = ConsoleRecorder()
-        let exitCode = SwiftHTTPie.run(
+        let exitCode = SwiftPie.run(
             arguments: [
-                "SwiftHTTPie",
+                "spie",
                 "--auth-type",
                 "digest",
                 "--auth",
@@ -346,9 +346,9 @@ struct CLIRunnerTests {
     @Test("Rejects auth type usage without credentials")
     func rejectsAuthTypeWithoutCredentials() {
         let console = ConsoleRecorder()
-        let exitCode = SwiftHTTPie.run(
+        let exitCode = SwiftPie.run(
             arguments: [
-                "SwiftHTTPie",
+                "spie",
                 "--auth-type=bearer",
                 "https://example.com"
             ],

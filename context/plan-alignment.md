@@ -1,7 +1,7 @@
 # Plan Alignment Review — 2025-11-02
 
 This note captures how the current phase roadmap (`context/plan.md`) lines up with
-the original SwiftHTTPie concept and the HTTPie/httpie-go feature checklist.
+the original SwiftPie concept and the HTTPie/httpie-go feature checklist.
 
 ## Concept Deliverables
 - ✅ Phases 001 – 005 focus on bringing the CLI from scaffold to a working
@@ -10,7 +10,7 @@ the original SwiftHTTPie concept and the HTTPie/httpie-go feature checklist.
 - ⚠️ No phase presently targets the companion library needed for “clientless”
   HTTPie-style CLIs in Vapor. The roadmap lacks milestones for defining the
   reusable request/response handler API or demonstrating it inside a sample
-  Vapor target (a core part of `context/swifthttpie.md`).
+  Vapor target (a core part of `context/swiftpie.md`).
 - ⚠️ Developer experience goals called out in the concept (bootstrapping
   dependencies, handler lifecycle, Vapor integration) have no assigned owner or
   acceptance tests in the plan yet.

@@ -7,7 +7,7 @@ import Glibc
 import Foundation
 import HTTPTypes
 
-public enum SwiftHTTPie {
+public enum SwiftPie {
     /// Primary entry point invoked by the CLI executable.
     /// - Parameter arguments: The raw command-line arguments, usually `CommandLine.arguments`.
     /// - Returns: Never returns because it terminates the process with the exit code.
@@ -415,7 +415,7 @@ private struct CLIRunner<Transport: RequestTransport> {
 
     private var helpText: String {
         """
-        usage: SwiftHTTPie [options] <HTTP request parts>
+        usage: spie [options] <HTTP request parts>
 
         options:
           -h, --help          Show this help message and exit.

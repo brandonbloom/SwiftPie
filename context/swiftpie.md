@@ -1,4 +1,4 @@
-SwiftHTTPie Concept
+SwiftPie Concept
 ===================
 
 Overview
@@ -9,15 +9,15 @@ Overview
 Developer Workflow
 ------------------
 - Developers factor Vapor route logic into reusable modules.
-- A CLI target depends on the library and invokes `SwiftHTTPie.main`.
-- `SwiftHTTPie.main` boots required dependencies, then runs the handler for requests issued via `swift run my-cli METHOD /path`.
+- A CLI target depends on the library and invokes `SwiftPie.main`.
+- `SwiftPie.main` boots required dependencies, then runs the handler for requests issued via `swift run my-cli METHOD /path`.
 
 Library Direction
 -----------------
 - Expose an entry point that accepts a callable handler and manages lifecycle internally.
 - Initial handler focus: Vapor REST APIs, while staying adaptable so other Swift frameworks can integrate later.
 - Favor `swift-http-types` primitives (`HTTPRequest`, `HTTPResponse`) as the lowest common denominator where practical.
-- Allow CLI authors to inject dependencies (databases, middleware) before passing the handler to `SwiftHTTPie.main`.
+- Allow CLI authors to inject dependencies (databases, middleware) before passing the handler to `SwiftPie.main`.
 
 CLI Behavior Expectations
 -------------------------
@@ -37,6 +37,6 @@ Feature Priorities
 
 Next Steps
 ----------
-- Audit `context/httpie-go` to catalog the supported subset and translate it into SwiftHTTPie's roadmap.
+- Audit `context/httpie-go` to catalog the supported subset and translate it into SwiftPie's roadmap.
 - Decide on concrete handler signature and Vapor integration details using `swift-http-types`.
 - Prototype the core library API and a reference CLI target to validate the workflow end to end.

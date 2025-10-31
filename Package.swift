@@ -4,18 +4,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "SwiftHTTPie",
+    name: "SwiftPie",
     platforms: [
         .macOS(.v14)
     ],
     products: [
         .library(
-            name: "SwiftHTTPie",
-            targets: ["SwiftHTTPie"]
+            name: "SwiftPie",
+            targets: ["SwiftPie"]
         ),
         .executable(
-            name: "swift-httpie",
-            targets: ["SwiftHTTPieCLI"]
+            name: "spie",
+            targets: ["SwiftPieCLI"]
         ),
         .executable(
             name: "PeerDemo",
@@ -29,37 +29,37 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "SwiftHTTPie",
+            name: "SwiftPie",
             dependencies: [
                 .product(name: "HTTPTypes", package: "swift-http-types")
             ]
         ),
         .executableTarget(
-            name: "SwiftHTTPieCLI",
+            name: "SwiftPieCLI",
             dependencies: [
-                "SwiftHTTPie"
+                "SwiftPie"
             ]
         ),
         .executableTarget(
             name: "PeerDemo",
             dependencies: [
-                "SwiftHTTPie",
-                "SwiftHTTPieTestSupport",
+                "SwiftPie",
+                "SwiftPieTestSupport",
             ],
             path: "Examples/PeerDemo"
         ),
         .testTarget(
-            name: "SwiftHTTPieTests",
+            name: "SwiftPieTests",
             dependencies: [
-                "SwiftHTTPie",
-                "SwiftHTTPieTestSupport"
+                "SwiftPie",
+                "SwiftPieTestSupport"
             ],
-            path: "Tests/SwiftHTTPieTests"
+            path: "Tests/SwiftPieTests"
         ),
         .target(
-            name: "SwiftHTTPieTestSupport",
+            name: "SwiftPieTestSupport",
             dependencies: [
-                "SwiftHTTPie",
+                "SwiftPie",
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
@@ -69,11 +69,11 @@ let package = Package(
             path: "Tests/TestSupport"
         ),
         .target(
-            name: "SwiftHTTPieDocs",
-            dependencies: ["SwiftHTTPie"],
+            name: "SwiftPieDocs",
+            dependencies: ["SwiftPie"],
             path: "Docs",
             resources: [
-                .copy("SwiftHTTPie.docc")
+                .copy("SwiftPie.docc")
             ]
         ),
     ]

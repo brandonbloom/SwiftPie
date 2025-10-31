@@ -1,6 +1,6 @@
 import HTTPTypes
 import Testing
-@testable import SwiftHTTPie
+@testable import SwiftPie
 
 @Suite("Response formatter")
 struct ResponseFormatterTests {

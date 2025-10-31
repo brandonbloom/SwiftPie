@@ -9,7 +9,7 @@
 - Extend `RequestTransport` with streaming body support plus progress callbacks safe for both URLSession and peer transports.
 - Introduce a file writer that streams to temporary files, enforces overwrite protections, and moves atomically into place on success (with hooks for future resume support).
 - Teach the CLI parser about `--download`, `--output`, and related toggles, routing progress metadata to stderr while keeping stdout quiet.
-- Expand `SwiftHTTPieTestSupport` with chunked/large-payload endpoints to serve as deterministic fixtures.
+- Expand `SwiftPieTestSupport` with chunked/large-payload endpoints to serve as deterministic fixtures.
 
 ## Test Plan Draft
 - Transport unit specs covering chunked transfers, incomplete streams, and progress notifications.

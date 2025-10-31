@@ -39,6 +39,26 @@
       "target": "PeerDemo",
       "configuration": "release",
       "preLaunchTask": "swift: Build Release PeerDemo"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:SwiftHTTPie}",
+      "name": "Debug spie",
+      "target": "spie",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug spie"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:SwiftHTTPie}",
+      "name": "Release spie",
+      "target": "spie",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release spie"
     }
   ]
 }

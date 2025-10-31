@@ -3,7 +3,7 @@ import NIO
 import NIOConcurrencyHelpers
 import NIOHTTP1
 import NIOPosix
-import SwiftHTTPie
+import SwiftPie
 
 // MARK: - Public API
 
