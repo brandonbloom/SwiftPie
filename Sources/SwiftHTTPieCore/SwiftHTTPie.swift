@@ -5,6 +5,7 @@ import Glibc
 #endif
 
 import Foundation
+import HTTPTypes
 
 public enum SwiftHTTPie {
     /// Primary entry point invoked by the CLI executable.
@@ -15,24 +16,38 @@ public enum SwiftHTTPie {
         exit(Int32(exitCode))
     }
 
-    /// Utility that executes the CLI flow and returns an exit status.
-    /// Allows callers (like the executable target) to handle process termination.
-    public static func run(arguments: [String], environment: CLIEnvironment = .init()) -> Int {
-        let runner = CLIRunner(arguments: arguments, environment: environment)
+    /// Utility that executes the CLI flow using the default context.
+    public static func run(arguments: [String]) -> Int {
+        run(arguments: arguments, context: CLIContext())
+    }
+
+    /// Utility that executes the CLI flow with a custom context.
+    public static func run<Transport: RequestTransport>(
+        arguments: [String],
+        context: CLIContext<Transport>
+    ) -> Int {
+        let runner = CLIRunner(arguments: arguments, context: context)
         return runner.run()
     }
 }
 
-public struct CLIEnvironment {
+public struct CLIContext<Transport: RequestTransport> {
     public var console: any Console
-    public var requestSink: (RequestPayload) -> Void
+    public var transport: Transport
 
     public init(
         console: any Console = StandardConsole(),
-        requestSink: @escaping (RequestPayload) -> Void = { _ in }
+        transport: Transport
     ) {
         self.console = console
-        self.requestSink = requestSink
+        self.transport = transport
+    }
+}
+
+public extension CLIContext where Transport == PendingTransport {
+    init(console: any Console = StandardConsole(), transport: Transport = PendingTransport()) {
+        self.console = console
+        self.transport = transport
     }
 }
 
@@ -61,37 +76,41 @@ private enum ExitCode {
     }
 }
 
-private struct CLIRunner {
+private struct CLIRunner<Transport: RequestTransport> {
     private let arguments: [String]
-    private let environment: CLIEnvironment
+    private let context: CLIContext<Transport>
 
-    init(arguments: [String], environment: CLIEnvironment) {
+    init(arguments: [String], context: CLIContext<Transport>) {
         self.arguments = arguments
-        self.environment = environment
+        self.context = context
     }
 
     func run() -> Int {
         let userArguments = Array(arguments.dropFirst())
 
         if shouldShowHelp(userArguments) {
-            environment.console.out(helpText)
+            context.console.out(helpText)
             return ExitCode.success.rawValue
         }
 
         do {
             let parsed = try RequestParser.parse(arguments: userArguments)
             let payload = try RequestBuilder.build(from: parsed)
-            environment.requestSink(payload)
-            environment.console.out("Request prepared. Transport integration pending.\n")
-            return ExitCode.success.rawValue
+            let response = try context.transport.send(payload)
+            let formatted = ResponseFormatter().format(response)
+            context.console.out(formatted)
+            return exitCode(for: response.response.status)
         } catch let error as RequestParserError {
-            environment.console.error("error: \(error.cliDescription)\n")
+            context.console.error("error: \(error.cliDescription)\n")
             return ExitCode.usage.rawValue
         } catch let error as RequestBuilderError {
-            environment.console.error("error: \(error.cliDescription)\n")
+            context.console.error("error: \(error.cliDescription)\n")
             return ExitCode.usage.rawValue
+        } catch let error as TransportError {
+            context.console.error("transport error: \(error.cliDescription)\n")
+            return ExitCode.failure.rawValue
         } catch {
-            environment.console.error("error: \(error.localizedDescription)\n")
+            context.console.error("error: \(error.localizedDescription)\n")
             return ExitCode.failure.rawValue
         }
     }
@@ -114,5 +133,14 @@ private struct CLIRunner {
           -h, --help     Show this help message and exit.
 
         """
+    }
+
+    private func exitCode(for status: HTTPResponse.Status) -> Int {
+        switch status.code {
+        case 100..<400:
+            return ExitCode.success.rawValue
+        default:
+            return ExitCode.failure.rawValue
+        }
     }
 }

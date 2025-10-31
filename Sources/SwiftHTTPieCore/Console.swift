@@ -5,7 +5,7 @@ public enum ConsoleStream {
     case standardError
 }
 
-public protocol Console: Sendable {
+public protocol Console: AnyObject {
     func write(_ text: String, to stream: ConsoleStream)
 }
 
@@ -19,7 +19,7 @@ public extension Console {
     }
 }
 
-public struct StandardConsole: Console {
+public final class StandardConsole: Console {
     public init() {}
 
     public func write(_ text: String, to stream: ConsoleStream) {

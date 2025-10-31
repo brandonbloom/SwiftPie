@@ -15,7 +15,7 @@ struct CLIRunnerTests {
         let console = ConsoleRecorder()
         let exitCode = SwiftHTTPie.run(
             arguments: ["SwiftHTTPie"],
-            environment: CLIEnvironment(console: console)
+            context: CLIContext(console: console)
         )
 
         #expect(exitCode == 0)
@@ -28,7 +28,7 @@ struct CLIRunnerTests {
         let console = ConsoleRecorder()
         let exitCode = SwiftHTTPie.run(
             arguments: ["SwiftHTTPie", "invalid::token"],
-            environment: CLIEnvironment(console: console)
+            context: CLIContext(console: console)
         )
 
         #expect(exitCode == Int(EX_USAGE))
@@ -36,10 +36,15 @@ struct CLIRunnerTests {
         #expect(console.error.contains("invalid URL"))
     }
 
-    @Test("Builds request payload and delivers it to the sink")
-    func deliversParsedRequestToSink() throws {
+    @Test("Builds request payload, sends it via the transport, and renders the response")
+    func rendersTransportResponse() throws {
         let console = ConsoleRecorder()
-        var receivedPayloads: [RequestPayload] = []
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("OK")
+        )
+        transport.queue(result: .success(response))
 
         let exitCode = SwiftHTTPie.run(
             arguments: [
@@ -51,17 +56,15 @@ struct CLIRunnerTests {
                 "name=value",
                 "name=value2"
             ],
-            environment: CLIEnvironment(
+            context: CLIContext(
                 console: console,
-                requestSink: { payload in
-                    receivedPayloads.append(payload)
-                }
+                transport: transport
             )
         )
 
         #expect(exitCode == 0)
 
-        let payload = try #require(receivedPayloads.first)
+        let payload = try #require(transport.payloads.first)
         #expect(payload.request.method.rawValue == "POST")
         #expect(payload.request.scheme == "https")
         #expect(payload.request.authority == "example.com")
@@ -78,7 +81,52 @@ struct CLIRunnerTests {
             DataField(name: "name", value: .text("value2"))
         ])
 
-        #expect(console.output.contains("Request prepared"))
+        #expect(console.output.contains("HTTP/1.1 200 OK"))
+        #expect(console.output.contains("Content-Length: 2") == false)
+        #expect(console.output.contains("OK"))
+        #expect(console.error.isEmpty)
+    }
+
+    @Test("Reports transport failures with exit code 1")
+    func reportsTransportFailures() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        transport.queue(result: .failure(.networkError("unreachable host")))
+
+        let exitCode = SwiftHTTPie.run(
+            arguments: ["SwiftHTTPie", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 1)
+        #expect(console.output.isEmpty)
+        #expect(console.error.contains("transport error: unreachable host"))
+    }
+
+    @Test("Returns non-zero exit codes for 4xx/5xx responses")
+    func exitsWithErrorForClientAndServerErrors() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let notFound = ResponsePayload(
+            response: HTTPResponse(status: .notFound),
+            body: .text("missing")
+        )
+        transport.queue(result: .success(notFound))
+
+        let exitCode = SwiftHTTPie.run(
+            arguments: ["SwiftHTTPie", "https://example.com/missing"],
+            context: CLIContext(
+                console: console,
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 1)
+        #expect(console.output.contains("HTTP/1.1 404 Not Found"))
+        #expect(console.output.contains("missing"))
         #expect(console.error.isEmpty)
     }
 }
@@ -97,4 +145,27 @@ private final class ConsoleRecorder: Console {
     }
 }
 
-extension ConsoleRecorder: @unchecked Sendable {}
+private final class TransportRecorder: RequestTransport {
+    private(set) var payloads: [RequestPayload] = []
+    private var results: [Result<ResponsePayload, TransportError>] = []
+
+    func queue(result: Result<ResponsePayload, TransportError>) {
+        results.append(result)
+    }
+
+    func send(_ payload: RequestPayload) throws -> ResponsePayload {
+        payloads.append(payload)
+
+        guard !results.isEmpty else {
+            throw TransportError.internalFailure("no queued transport result")
+        }
+
+        let result = results.removeFirst()
+        switch result {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+}

@@ -27,6 +27,6 @@
 
 ## 2025-10-30 Completion
 - Pulled in `swift-http-types` and introduced `RequestBuilder` to translate `ParsedRequest` into `HTTPRequest` plus body/files metadata exposed through a new `RequestPayload`.
-- Replaced the CLI placeholder flow with `RequestParser` → `RequestBuilder`, surfaced parser/build errors on stderr with `EX_USAGE`, and provided injectable `CLIEnvironment`/`Console` hooks for future transport integration.
+- Replaced the CLI placeholder flow with `RequestParser` → `RequestBuilder`, surfaced parser/build errors on stderr with `EX_USAGE`, and provided injectable `CLIContext`/`Console` hooks for future transport integration.
 - Extended parser coverage for duplicate headers/data and file embeds; added `RequestBuilderTests` and `CLIRunnerTests` to exercise success/error paths and ensure exit codes/output align with expectations (`swift test` now runs 12 specs).
-- The current `requestSink` in `CLIEnvironment` is intentionally one-way: Phase 002 stops after preparing a `RequestPayload`, leaving Phase 003 to define a RoundTripper/Handler-style abstraction that returns responses.
+- The current `requestSink` in `CLIContext` is intentionally one-way: Phase 002 stops after preparing a `RequestPayload`, leaving Phase 003 to define a RoundTripper/Handler-style abstraction that returns responses.
