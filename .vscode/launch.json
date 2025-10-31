@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:SwiftHTTPie}",
+      "name": "Debug SwiftHTTPie",
+      "target": "SwiftHTTPie",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug SwiftHTTPie"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:SwiftHTTPie}",
+      "name": "Release SwiftHTTPie",
+      "target": "SwiftHTTPie",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release SwiftHTTPie"
+    }
+  ]
+}
