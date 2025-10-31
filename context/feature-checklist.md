@@ -35,20 +35,20 @@ Legend:
 - [ ] **P1 Cookie persistence via sessions** — HTTPie ✅ | httpie-go ❌ — Manage cookie jars tied to session files and host binding.
 
 ## Authentication & Security
-- [ ] **P0 Basic auth `-a user:pass` with password prompt** — HTTPie ✅ | httpie-go ✅ — Prompt for missing password when username provided.
-- [ ] **P0 TLS verification toggle (`--verify`)** — HTTPie ✅ | httpie-go ✅ — Allow disabling certificate validation.
-- [ ] **P0 Force HTTP/1.1 (`--http1`)** — HTTPie ✅ | httpie-go ✅ — Disable HTTP/2 upgrades where needed.
-- [ ] **P0 Timeout control (`--timeout`)** — HTTPie ✅ | httpie-go ✅ — Cap total request duration (infinite when downloading).
-- [ ] **P2 Extended auth (`--auth-type`, bearer, digest, plugins)** — HTTPie ✅ | httpie-go ❌ — Support additional credential strategies beyond basic.
+- [x] **P0 Basic auth `-a user:pass` with password prompt** — HTTPie ✅ | httpie-go ✅ — Prompt for missing password when username provided. (Phase 006 ✅)
+- [x] **P0 TLS verification toggle (`--verify`)** — HTTPie ✅ | httpie-go ✅ — Allow disabling certificate validation. (Phase 006 ✅)
+- [x] **P0 Force HTTP/1.1 (`--http1`)** — HTTPie ✅ | httpie-go ✅ — Disable HTTP/2 upgrades where needed. (Phase 006 ✅ — ensure behaviour against HTTP/2 servers.)
+- [x] **P0 Timeout control (`--timeout`)** — HTTPie ✅ | httpie-go ✅ — Cap total request duration (infinite when downloading). (Phase 006 ✅)
+- [ ] **P2 Extended auth (`--auth-type`, bearer, digest, plugins)** — HTTPie ✅ | httpie-go ❌ — Support additional credential strategies beyond basic. (Bearer implemented in Phase 006; digest/plugins pending.)
 - [ ] **P2 Client certificates & TLS tuning (`--cert`, `--cert-key`, `--ssl`)** — HTTPie ✅ | httpie-go ❌ — Supply client certs/keys and tweak TLS versions/ciphers.
 
 ## Transport & Execution Controls
 - [ ] **P0 Follow redirects (`--follow`)** — HTTPie ✅ | httpie-go ✅ — Honor 30x responses with loop protection.
 - [ ] **P0 Exit on HTTP errors (`--check-status`)** — HTTPie ✅ | httpie-go ✅ — Map 3xx–5xx statuses to non-zero exit codes.
-- [ ] **P0 Ignore stdin (`--ignore-stdin`)** — HTTPie ✅ | httpie-go ✅ — Avoid unintended stdin consumption.
-- [ ] **P0 Download mode (`--download`, `--output`, `--overwrite`)** — HTTPie ✅ | httpie-go ✅ — Save bodies to files with progress and naming rules.
+- [x] **P0 Ignore stdin (`--ignore-stdin`)** — HTTPie ✅ | httpie-go ✅ — Avoid unintended stdin consumption. (Phase 006 ✅)
+- [ ] **P0 Download mode (`--download`, `--output`, `--overwrite`)** — HTTPie ✅ | httpie-go ✅ — Save bodies to files with progress and naming rules. (➡️ Phase 007)
 - [ ] **P1 Offline mode (`--offline`)** — HTTPie ✅ | httpie-go ❌ — Render requests without sending them (doc example parity).
-- [ ] **P1 Session management (`--session`, `--session-read-only`, upgrade)** — HTTPie ✅ | httpie-go ❌ — Persist headers/auth/cookies between runs.
+- [ ] **P1 Session management (`--session`, `--session-read-only`, upgrade)** — HTTPie ✅ | httpie-go ❌ — Persist headers/auth/cookies between runs. (➡️ Phase 010)
 - [ ] **P1 Download resume (`--continue`)** — HTTPie ✅ | httpie-go ❌ — Resume partial downloads when supported by server.
 - [ ] **P2 Proxy support (`--proxy`, env vars)** — HTTPie ✅ | httpie-go ❌ — Route traffic through HTTP/SOCKS proxies.
 - [ ] **P2 Streamed responses (`--stream`)** — HTTPie ✅ | httpie-go ❌ — Flush response chunks incrementally even when prettified.

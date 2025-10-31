@@ -2,8 +2,12 @@ import Foundation
 import HTTPTypes
 
 public final class URLSessionTransport: RequestTransport {
-    private let session: URLSession
+    private let baseConfiguration: URLSessionConfiguration
+    private let secureSession: URLSession
+    private var insecureSession: URLSession?
+    private var insecureDelegate: InsecureSessionDelegate?
     private let defaultTimeout: TimeInterval
+    private let sessionLock = NSLock()
 
     public init(configuration: URLSessionConfiguration = .ephemeral) {
         let baseConfiguration = (configuration.copy() as? URLSessionConfiguration) ?? configuration
@@ -19,21 +23,27 @@ public final class URLSessionTransport: RequestTransport {
             config.timeoutIntervalForRequest = 60
         }
 
-        self.session = URLSession(configuration: config)
+        self.baseConfiguration = config
+        self.secureSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
         self.defaultTimeout = config.timeoutIntervalForRequest
     }
 
     deinit {
-        session.invalidateAndCancel()
+        secureSession.invalidateAndCancel()
+        insecureSession?.invalidateAndCancel()
     }
 
-    public func send(_ payload: RequestPayload) throws -> ResponsePayload {
-        let request = try makeURLRequest(from: payload)
-        let (data, response) = try performRequest(request)
+    public func send(_ payload: RequestPayload, options: TransportOptions) throws -> ResponsePayload {
+        let request = try makeURLRequest(from: payload, options: options)
+        let session = session(for: options.verify)
+        let (data, response) = try performRequest(request, session: session)
         return try makeResponse(from: data, response: response)
     }
 
-    private func makeURLRequest(from payload: RequestPayload) throws -> URLRequest {
+    private func makeURLRequest(
+        from payload: RequestPayload,
+        options: TransportOptions
+    ) throws -> URLRequest {
         guard
             let scheme = payload.request.scheme,
             let authority = payload.request.authority
@@ -47,7 +57,7 @@ public final class URLSessionTransport: RequestTransport {
         }
 
         var request = URLRequest(url: url)
-        request.timeoutInterval = defaultTimeout
+        request.timeoutInterval = options.timeout ?? defaultTimeout
         request.httpMethod = payload.request.method.rawValue
 
         for field in payload.request.headerFields {
@@ -61,6 +71,11 @@ public final class URLSessionTransport: RequestTransport {
                shouldApplyDefaultHeader(named: "Content-Type", for: payload) {
                 request.setValue(contentType, forHTTPHeaderField: "Content-Type")
             }
+        }
+
+        if options.httpVersionPreference == .http1Only,
+           shouldApplyDefaultHeader(named: "Connection", for: payload) {
+            request.setValue("close", forHTTPHeaderField: "Connection")
         }
 
         return request
@@ -182,6 +197,31 @@ public final class URLSessionTransport: RequestTransport {
         )
     }
 
+    private func session(for verification: TransportOptions.TLSVerification) -> URLSession {
+        switch verification {
+        case .enforced:
+            return secureSession
+        case .disabled:
+            sessionLock.lock()
+            defer { sessionLock.unlock() }
+
+            if let existing = insecureSession {
+                return existing
+            }
+
+            let configuration = makeSessionConfiguration()
+            let delegate = InsecureSessionDelegate()
+            let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+            insecureSession = session
+            insecureDelegate = delegate
+            return session
+        }
+    }
+
+    private func makeSessionConfiguration() -> URLSessionConfiguration {
+        (baseConfiguration.copy() as? URLSessionConfiguration) ?? baseConfiguration
+    }
+
     private func shouldApplyDefaultHeader(named name: String, for payload: RequestPayload) -> Bool {
         guard let fieldName = HTTPField.Name(name) else {
             return true
@@ -198,7 +238,10 @@ public final class URLSessionTransport: RequestTransport {
         return true
     }
 
-    private func performRequest(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
+    private func performRequest(
+        _ request: URLRequest,
+        session: URLSession
+    ) throws -> (Data, HTTPURLResponse) {
         /// Box bridging the async completion handler onto this synchronous API.
         /// The value is only written once before the semaphore is signalled,
         /// so it is safe to treat as `Sendable`.
@@ -350,6 +393,21 @@ public final class URLSessionTransport: RequestTransport {
             .replacingOccurrences(of: "\n", with: " ")
     }
 
+}
+
+private final class InsecureSessionDelegate: NSObject, URLSessionDelegate {
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+           let trust = challenge.protectionSpace.serverTrust {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.performDefaultHandling, nil)
+        }
+    }
 }
 
 private struct EncodedBody {

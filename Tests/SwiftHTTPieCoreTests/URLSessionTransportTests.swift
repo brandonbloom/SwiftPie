@@ -15,7 +15,7 @@ struct URLSessionTransportTests {
             ])
 
             let payload = try RequestBuilder.build(from: parsed)
-            let response = try transport.send(payload)
+            let response = try transport.send(payload, options: TransportOptions())
 
             #expect(response.response.status == .ok)
 
@@ -43,7 +43,7 @@ struct URLSessionTransportTests {
             ])
 
             let payload = try RequestBuilder.build(from: parsed)
-            let response = try transport.send(payload)
+            let response = try transport.send(payload, options: TransportOptions())
 
             guard case .text(let text) = response.body else {
                 Issue.record("Expected text response body, got \(response.body)")
@@ -72,7 +72,7 @@ struct URLSessionTransportTests {
             ])
 
             let payload = try RequestBuilder.build(from: parsed)
-            let response = try transport.send(payload)
+            let response = try transport.send(payload, options: TransportOptions())
 
             guard case .text(let text) = response.body else {
                 Issue.record("Expected text response body, got \(response.body)")
@@ -100,7 +100,7 @@ struct URLSessionTransportTests {
         let payload = try RequestBuilder.build(from: parsed)
 
         do {
-            _ = try transport.send(payload)
+            _ = try transport.send(payload, options: TransportOptions())
             Issue.record("Expected network error")
         } catch let error as TransportError {
             switch error {

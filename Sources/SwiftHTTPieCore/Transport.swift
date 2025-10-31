@@ -2,7 +2,33 @@ import Foundation
 import HTTPTypes
 
 public protocol RequestTransport {
-    func send(_ payload: RequestPayload) throws -> ResponsePayload
+    func send(_ payload: RequestPayload, options: TransportOptions) throws -> ResponsePayload
+}
+
+public struct TransportOptions: Equatable, Sendable {
+    public enum TLSVerification: Equatable, Sendable {
+        case enforced
+        case disabled
+    }
+
+    public enum HTTPVersionPreference: Equatable, Sendable {
+        case automatic
+        case http1Only
+    }
+
+    public var timeout: TimeInterval?
+    public var verify: TLSVerification
+    public var httpVersionPreference: HTTPVersionPreference
+
+    public init(
+        timeout: TimeInterval? = nil,
+        verify: TLSVerification = .enforced,
+        httpVersionPreference: HTTPVersionPreference = .automatic
+    ) {
+        self.timeout = timeout
+        self.verify = verify
+        self.httpVersionPreference = httpVersionPreference
+    }
 }
 
 public struct ResponsePayload: Equatable, Sendable {
