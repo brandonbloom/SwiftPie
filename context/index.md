@@ -1,9 +1,15 @@
-# Submodules
+# Context Overview
+
+## Documents
+- [./concept.md](./concept.md) -- High-level SwiftHTTPie project concept.
+- [./swifthttpie.md](./swifthttpie.md) -- Working vision, workflow, and feature priorities.
+
+## Submodules
 
 Several context subdirectories are Git submodules containing related codebases
-to be used for refernece.
+to be used for reference.
 
 - [./httpie](./httpie) -- Official Python implementation of HTTPie.
 - [./httpie-go](./httpie-go) -- Port of HTTPie to Go.
-- [./pier](./pier) -- An extension to HTTPie that adds support for "clientless" operation.
-- [./vapor](./vapor) -- Swift Web Framework
+- [./pier](./pier) -- Extension to HTTPie adding "clientless" operation.
+- [./vapor](./vapor) -- Swift web framework.
