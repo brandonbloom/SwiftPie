@@ -35,14 +35,3 @@ extension TransportError {
         }
     }
 }
-
-public struct PendingTransport: RequestTransport {
-    public init() {}
-
-    public func send(_ payload: RequestPayload) throws -> ResponsePayload {
-        ResponsePayload(
-            response: HTTPResponse(status: .ok),
-            body: .text("Transport integration pending.")
-        )
-    }
-}

@@ -44,6 +44,8 @@ Phase Roadmap
 - Proposed scope to confirm with user: Choose a concrete client (`URLSession`, `AsyncHTTPClient`, etc.), support streaming bodies, TLS/custom trust hooks, and map metadata cleanly between layers. Expand the local test server as needed (TLS certs, streaming endpoints) to exercise these behaviors.
 - Candidate test plan: Integration tests hitting the local test server validating verbs, headers, payload types, redirects, and error propagation; retain fake transport support for deterministic tests.
 - Exit artifact: Capture architecture decisions in `context/phase-005.md`.
+- ✅ `URLSessionTransport` now powers the default CLI context with JSON/form/multipart body support and response decoding. Network error propagation and CLI integration are covered by new tests (`URLSessionTransportTests`, updated `swift test` run on 2025-10-31).
+- 🔜 Add TLS fixtures, streaming uploads/downloads, and expose configuration knobs (timeouts, proxies) through the CLI once scoped.
 
 ### Phase 006 — Sessions, Downloads, Auth
 - Objective: Reach httpie-go-level parity for session persistence, downloads, and authentication switches.

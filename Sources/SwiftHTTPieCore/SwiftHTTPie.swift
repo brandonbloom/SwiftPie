@@ -98,8 +98,8 @@ public struct CLIContext<Transport: RequestTransport> {
     }
 }
 
-public extension CLIContext where Transport == PendingTransport {
-    init(console: any Console = StandardConsole(), transport: Transport = PendingTransport()) {
+public extension CLIContext where Transport == URLSessionTransport {
+    init(console: any Console = StandardConsole(), transport: Transport = URLSessionTransport()) {
         self.console = console
         self.transport = transport
     }

@@ -23,3 +23,6 @@
 
 ## Test Runs
 - `swift test` (passes)
+
+## 2025-10-31 Update
+- `PendingTransport` has been retired; the default CLI context now uses the real `URLSessionTransport` introduced in Phase 005. The abstraction and tests from this phase continue to serve fake transports where needed.

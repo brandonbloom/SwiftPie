@@ -11,6 +11,7 @@
 - [./phase-002.md](./phase-002.md) -- Phase 002 notes on request parsing scope, reference tests, and follow-ups.
 - [./phase-003.md](./phase-003.md) -- Phase 003 notes covering transport abstraction, fake implementations, and CLI response rendering.
 - [./phase-004.md](./phase-004.md) -- Phase 004 notes on the in-process Swift HTTP test server design, endpoints, and fixtures.
+- [./phase-005.md](./phase-005.md) -- Phase 005 notes on the real network transport and CLI integration.
 
 ## Submodules
 
