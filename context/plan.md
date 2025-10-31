@@ -9,6 +9,7 @@ Workflow Guardrails
 - When implementation for a phase is ready, request a user review, note follow-ups in the matching phase file, then revise this plan to reflect any new direction.
 - After each review cycle, remind the user to run `/new` so the conversation context resets before the next phase.
 - Keep the immediately upcoming phases richly detailed; allow later phases to stay high level until the plan is revisited post-review.
+- Update `context/feature-checklist.md` and README/docs alongside each phase so parity status and user-facing guidance stay current.
 
 Phase Roadmap
 -------------
@@ -47,17 +48,41 @@ Phase Roadmap
 - ✅ `URLSessionTransport` now powers the default CLI context with JSON/form/multipart body support and response decoding. Network error propagation and CLI integration are covered by new tests (`URLSessionTransportTests`, updated `swift test` run on 2025-10-31).
 - 🔜 Add TLS fixtures, streaming uploads/downloads, and expose configuration knobs (timeouts, proxies) through the CLI once scoped.
 
-### Phase 006 — Sessions, Downloads, Auth
-- Objective: Reach httpie-go-level parity for session persistence, downloads, and authentication switches.
-- Proposed scope to confirm with user: Session persistence format/location, download streaming to files/stdout, credential parsing (basic, bearer, prompt) and related CLI flags; ensure compatibility with request-building semantics from Phase 002.
-- Candidate test plan: Integration tests covering session reuse, download verification via fixtures, and auth flows including prompt suppression.
+### Phase 006 — Authentication & Core Flags (Go Parity)
+- Objective: Implement the authentication, verification, and timeout switches shipped by `httpie-go` so the CLI reaches baseline feature parity.
+- Proposed scope to confirm with user: Support `-a/--auth` with prompt fallback, `--auth-type=bearer`, `--verify`, `--timeout`, `--http1`, and `--ignore-stdin` behaviours aligned with Go.
+- Candidate test plan: Unit tests for credential parsing and option validation, CLI integration tests covering prompts/stdin handling and exit codes.
 - Exit artifact: Track progress in `context/phase-006.md`.
 
-### Phase 007 — Polish & Extended Parity
-- Objective: Layer on advanced HTTPie behaviors (verbose mode, streaming, colors) and stabilize for release.
+### Phase 007 — Download Mode & Streaming
+- Objective: Deliver `--download`, `--output`, and overwrite safeguards so large responses stream to disk similar to `httpie-go`.
+- Proposed scope to confirm with user: Add streaming body support in the transport, file writer utilities, CLI progress/exit semantics, and tests guarding overwrite protections.
+- Candidate test plan: Integration tests piping responses from the in-process server to temp files, failure-mode tests for existing-file overwrites, and CLI assertions for stdout/stderr redirects.
+- Exit artifact: Track progress in `context/phase-007.md`.
+
+### Phase 008 — Clientless Library & Example CLI
+- Objective: Deliver the reusable “clientless” library workflow described in `context/swifthttpie.md` and showcase it with a Vapor-backed example that reuses the in-process test server handlers.
+- Proposed scope to confirm with user: Define the public API for embedding handlers (swift-http-types based), provide lifecycle hooks for dependency bootstrapping, and create an example executable (`Examples/PeerDemo` or similar) that runs the test server endpoints in peer mode.
+- Candidate test plan: Unit specs for the handler adapter, integration tests that run the example CLI against the shared test server implementation, and documentation snippets validated via doctests or executable previews.
+- Exit artifact: Track progress in `context/phase-008.md`, including API diagrams and example wiring notes.
+
+### Phase 009 — Documentation & Release Readiness
+- Objective: Prepare the project for an open-source initial release with clear positioning, onboarding docs, and publishing automation.
+- Proposed scope to confirm with user: Author a comprehensive `README.md` (purpose, install/run, CLI usage, library embedding), surface feature parity status from `context/feature-checklist.md`, add licensing/CONTRIBUTING notes, and script basic release tasks (version bumps, changelog seed).
+- Candidate test plan: Lint documentation links/examples, run `swift build`/`swift test` in release mode, and exercise the example CLI walkthrough end to end.
+- Exit artifact: Capture doc/release decisions in `context/phase-009.md`.
+
+### Phase 010 — Sessions & Cookie Persistence
+- Objective: Introduce `--session`, read-only sessions, and cookie jar management to begin covering HTTPie doc parity beyond Go’s subset.
+- Proposed scope to confirm with user: Design session file format, persistence locations, concurrency guarantees, and ensure cookies/auth headers survive between invocations.
+- Candidate test plan: Integration tests that write session files, reuse them across invocations, and verify cookie jar updates; unit tests for serialization/deserialization edge cases.
+- Exit artifact: Track progress in `context/phase-010.md`.
+
+### Phase 011 — Polish & Extended Parity
+- Objective: Layer on advanced HTTPie behaviors (verbose mode, streaming output formatting, colors) and stabilize for release.
 - Proposed scope to confirm with user: Additional CLI flags (verbose, offline, pretty-print), UX refinements, documentation, and packaging/distribution.
 - Candidate test plan: Regression suite covering critical flags, golden-file output comparisons, documentation linting, and smoke tests across macOS targets.
-- Exit artifact: Summarize outcomes in `context/phase-007.md`.
+- Exit artifact: Summarize outcomes in `context/phase-011.md`.
 
 Plan Maintenance
 ----------------
