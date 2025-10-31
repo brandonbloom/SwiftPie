@@ -407,7 +407,7 @@ private func expandLocalhostShorthand(_ token: String) -> String? {
     return "http://localhost:\(remainder)"
 }
 
-enum RequestParserError: Error, Equatable {
+public enum RequestParserError: Error, Equatable {
     case missingURL
     case invalidURL(String)
     case invalidItem(String)
@@ -415,40 +415,85 @@ enum RequestParserError: Error, Equatable {
     case invalidJSON(String)
 }
 
-struct ParsedRequest: Equatable {
-    var method: HTTPMethod
-    var url: URL
-    var items: RequestItems
+extension RequestParserError {
+    public var cliDescription: String {
+        switch self {
+        case .missingURL:
+            return "missing URL; provide a URL or shorthand"
+        case .invalidURL(let token):
+            return "invalid URL '\(token)'"
+        case .invalidItem(let token):
+            return "invalid request item '\(token)'"
+        case .invalidFile(let token):
+            return "invalid file reference '\(token)'"
+        case .invalidJSON(let value):
+            return "invalid JSON value '\(value)'"
+        }
+    }
 }
 
-struct RequestItems: Equatable {
-    var headers: [HeaderField] = []
-    var data: [DataField] = []
-    var query: [QueryField] = []
-    var files: [FileField] = []
+public struct ParsedRequest: Equatable {
+    public var method: HTTPMethod
+    public var url: URL
+    public var items: RequestItems
+
+    public init(method: HTTPMethod, url: URL, items: RequestItems) {
+        self.method = method
+        self.url = url
+        self.items = items
+    }
 }
 
-struct HeaderField: Equatable {
-    var name: String
-    var value: HeaderValue
+public struct RequestItems: Equatable {
+    public var headers: [HeaderField]
+    public var data: [DataField]
+    public var query: [QueryField]
+    public var files: [FileField]
+
+    public init(
+        headers: [HeaderField] = [],
+        data: [DataField] = [],
+        query: [QueryField] = [],
+        files: [FileField] = []
+    ) {
+        self.headers = headers
+        self.data = data
+        self.query = query
+        self.files = files
+    }
 }
 
-enum HeaderValue: Equatable {
+public struct HeaderField: Equatable {
+    public var name: String
+    public var value: HeaderValue
+
+    public init(name: String, value: HeaderValue) {
+        self.name = name
+        self.value = value
+    }
+}
+
+public enum HeaderValue: Equatable {
     case some(String)
     case none
 }
 
-struct DataField: Equatable {
-    var name: String
-    var value: DataValue
+public struct DataField: Equatable {
+    public var name: String
+    public var value: DataValue
+
+    public init(name: String, value: DataValue) {
+        self.name = name
+        self.value = value
+    }
 }
 
-enum DataValue: Equatable {
+public enum DataValue: Equatable {
     case text(String)
     case json(JSONValue)
 }
 
-enum JSONValue: Equatable {
+public enum JSONValue: Equatable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -456,7 +501,7 @@ enum JSONValue: Equatable {
     case array([JSONValue])
     case object([String: JSONValue])
 
-    init(any value: Any) throws {
+    public init(any value: Any) throws {
         switch value {
         case let string as String:
             self = .string(string)
@@ -483,17 +528,27 @@ enum JSONValue: Equatable {
     }
 }
 
-struct QueryField: Equatable {
-    var name: String
-    var values: [String]
+public struct QueryField: Equatable {
+    public var name: String
+    public var values: [String]
+
+    public init(name: String, values: [String]) {
+        self.name = name
+        self.values = values
+    }
 }
 
-struct FileField: Equatable {
-    var name: String
-    var path: URL
+public struct FileField: Equatable {
+    public var name: String
+    public var path: URL
+
+    public init(name: String, path: URL) {
+        self.name = name
+        self.path = path
+    }
 }
 
-enum HTTPMethod: String, Equatable, CaseIterable {
+public enum HTTPMethod: String, Equatable, CaseIterable {
     case delete = "DELETE"
     case get = "GET"
     case head = "HEAD"

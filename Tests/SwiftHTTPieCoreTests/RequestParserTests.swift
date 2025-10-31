@@ -116,4 +116,40 @@ struct RequestParserTests {
             QueryField(name: "b", values: ["2"])
         ])
     }
+
+    @Test("Parses duplicate headers and form fields")
+    func parsesDuplicateHeadersAndData() throws {
+        let parsed = try RequestParser.parse(arguments: [
+            "https://example.com",
+            "Header:one",
+            "Header:two",
+            "name=value",
+            "name=value2"
+        ])
+
+        #expect(parsed.items.headers == [
+            HeaderField(name: "Header", value: .some("one")),
+            HeaderField(name: "Header", value: .some("two"))
+        ])
+
+        #expect(parsed.items.data == [
+            DataField(name: "name", value: .text("value")),
+            DataField(name: "name", value: .text("value2"))
+        ])
+    }
+
+    @Test("Parses file embeds with escaped characters")
+    func parsesFileEmbeds() throws {
+        let parsed = try RequestParser.parse(arguments: [
+            "POST",
+            "https://example.com/upload",
+            "file@/tmp/data.txt",
+            #"escaped\ name@path\ with\ spaces"#
+        ])
+
+        #expect(parsed.items.files == [
+            FileField(name: "file", path: URL(fileURLWithPath: "/tmp/data.txt")),
+            FileField(name: "escaped name", path: URL(fileURLWithPath: "path with spaces"))
+        ])
+    }
 }
