@@ -31,6 +31,60 @@ public enum SwiftHTTPie {
     }
 }
 
+private struct ParsedCLIOptions {
+    var showHelp: Bool
+    var arguments: [String]
+}
+
+private struct OptionParser {
+    var arguments: [String]
+
+    func parse() throws -> ParsedCLIOptions {
+        var remaining: [String] = []
+        var showHelp = false
+        var parsingOptions = true
+
+        for argument in arguments {
+            if parsingOptions {
+                if argument == "--" {
+                    parsingOptions = false
+                    continue
+                }
+
+                if argument.hasPrefix("-"), argument != "-" {
+                    switch argument {
+                    case "-h", "--help":
+                        showHelp = true
+                        continue
+                    default:
+                        throw CLIOptionError.unknownOption(argument)
+                    }
+                }
+            }
+
+            remaining.append(argument)
+        }
+
+        return ParsedCLIOptions(
+            showHelp: showHelp,
+            arguments: remaining
+        )
+    }
+}
+
+private enum CLIOptionError: Error {
+    case unknownOption(String)
+}
+
+private extension CLIOptionError {
+    var cliDescription: String {
+        switch self {
+        case .unknownOption(let option):
+            return "unknown option '\(option)'"
+        }
+    }
+}
+
 public struct CLIContext<Transport: RequestTransport> {
     public var console: any Console
     public var transport: Transport
@@ -88,18 +142,23 @@ private struct CLIRunner<Transport: RequestTransport> {
     func run() -> Int {
         let userArguments = Array(arguments.dropFirst())
 
-        if shouldShowHelp(userArguments) {
-            context.console.out(helpText)
-            return ExitCode.success.rawValue
-        }
-
         do {
-            let parsed = try RequestParser.parse(arguments: userArguments)
+            let options = try OptionParser(arguments: userArguments).parse()
+
+            if options.showHelp || options.arguments.isEmpty {
+                context.console.out(helpText)
+                return ExitCode.success.rawValue
+            }
+
+            let parsed = try RequestParser.parse(arguments: options.arguments)
             let payload = try RequestBuilder.build(from: parsed)
             let response = try context.transport.send(payload)
             let formatted = ResponseFormatter().format(response)
             context.console.out(formatted)
             return exitCode(for: response.response.status)
+        } catch let error as CLIOptionError {
+            context.console.error("error: \(error.cliDescription)\n")
+            return ExitCode.usage.rawValue
         } catch let error as RequestParserError {
             context.console.error("error: \(error.cliDescription)\n")
             return ExitCode.usage.rawValue
@@ -112,16 +171,6 @@ private struct CLIRunner<Transport: RequestTransport> {
         } catch {
             context.console.error("error: \(error.localizedDescription)\n")
             return ExitCode.failure.rawValue
-        }
-    }
-
-    private func shouldShowHelp(_ userArguments: [String]) -> Bool {
-        guard !userArguments.isEmpty else {
-            return true
-        }
-
-        return userArguments.contains { argument in
-            argument == "--help" || argument == "-h"
         }
     }
 

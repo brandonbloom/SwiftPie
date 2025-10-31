@@ -106,6 +106,19 @@ struct CLIRunnerTests {
         #expect(console.error.contains("transport error: unreachable host"))
     }
 
+    @Test("Reports unknown options before attempting to parse the request")
+    func reportsUnknownOptions() {
+        let console = ConsoleRecorder()
+        let exitCode = SwiftHTTPie.run(
+            arguments: ["SwiftHTTPie", "--unknown", "localhost"],
+            context: CLIContext(console: console)
+        )
+
+        #expect(exitCode == Int(EX_USAGE))
+        #expect(console.output.isEmpty)
+        #expect(console.error.contains("unknown option '--unknown'"))
+    }
+
     @Test("Returns non-zero exit codes for 4xx/5xx responses")
     func exitsWithErrorForClientAndServerErrors() {
         let console = ConsoleRecorder()

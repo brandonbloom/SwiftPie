@@ -30,3 +30,6 @@
 - Replaced the CLI placeholder flow with `RequestParser` → `RequestBuilder`, surfaced parser/build errors on stderr with `EX_USAGE`, and provided injectable `CLIContext`/`Console` hooks for future transport integration.
 - Extended parser coverage for duplicate headers/data and file embeds; added `RequestBuilderTests` and `CLIRunnerTests` to exercise success/error paths and ensure exit codes/output align with expectations (`swift test` now runs 12 specs).
 - The current `requestSink` in `CLIContext` is intentionally one-way: Phase 002 stops after preparing a `RequestPayload`, leaving Phase 003 to define a RoundTripper/Handler-style abstraction that returns responses.
+
+## 2025-10-31 Follow-up
+- Tightened CLI option parsing so unsupported flags such as `--unknown` trigger `EX_USAGE` with a dedicated diagnostic before request parsing, covered by a new `CLIRunnerTests` case.
