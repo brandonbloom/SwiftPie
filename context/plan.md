@@ -15,7 +15,7 @@ Phase Roadmap
 -------------
 
 ### Phase 001 — CLI Skeleton and Package Scaffolding ✅
-- Outcome: SwiftPM workspace now includes `SwiftHTTPieCore` and `SwiftHTTPieCLI`, a placeholder `SwiftHTTPie.main` that terminates with the computed exit code, and a smoke test script (`scripts/smoke-cli.sh`). Details captured in `context/phase-001.md`.
+- Outcome: SwiftPM workspace now includes `SwiftHTTPie` and `SwiftHTTPieCLI`, a placeholder `SwiftHTTPie.main` that terminates with the computed exit code, and a smoke test script (`scripts/smoke-cli.sh`). Details captured in `context/phase-001.md`.
 - Follow-ups: None pending before Phase 002; CLI exits successfully and tooling is ready for request-parsing work.
 
 ### Phase 002 — Request Parsing and HTTP Request Construction
@@ -54,28 +54,28 @@ Phase Roadmap
 - Candidate test plan: Unit tests for credential parsing and option validation, CLI integration tests covering prompts/stdin handling and exit codes.
 - Exit artifact: Track progress in `context/phase-006.md`.
 
-### Phase 007 — Download Mode & Streaming
-- Objective: Deliver `--download`, `--output`, and overwrite safeguards so large responses stream to disk similar to `httpie-go`.
-- Proposed scope to confirm with user: Add streaming body support in the transport, file writer utilities, CLI progress/exit semantics, and tests guarding overwrite protections.
-- Candidate test plan: Integration tests piping responses from the in-process server to temp files, failure-mode tests for existing-file overwrites, and CLI assertions for stdout/stderr redirects.
-- Exit artifact: Track progress in `context/phase-007.md`.
+### Phase 007 — Peer Library & Example CLI
+- Objective: Deliver the reusable peer-mode workflow described in `context/swifthttpie.md` and showcase it with a Vapor-backed example that reuses the in-process test server responders.
+- Proposed scope to confirm with user: Define the public API for embedding responders (swift-http-types based) and create an example executable (`Examples/PeerDemo` or similar) that runs the test server endpoints in peer mode.
+- Candidate test plan: Unit specs for the peer adapter, a smoke test for the example CLI, and documentation snippets validated via doctests or executable previews.
+- Exit artifact: Track progress in `context/phase-007.md`, including API diagrams and example wiring notes.
 
-### Phase 008 — Clientless Library & Example CLI
-- Objective: Deliver the reusable “clientless” library workflow described in `context/swifthttpie.md` and showcase it with a Vapor-backed example that reuses the in-process test server handlers.
-- Proposed scope to confirm with user: Define the public API for embedding handlers (swift-http-types based), provide lifecycle hooks for dependency bootstrapping, and create an example executable (`Examples/PeerDemo` or similar) that runs the test server endpoints in peer mode.
-- Candidate test plan: Unit specs for the handler adapter, integration tests that run the example CLI against the shared test server implementation, and documentation snippets validated via doctests or executable previews.
-- Exit artifact: Track progress in `context/phase-008.md`, including API diagrams and example wiring notes.
+### Phase 008 — Download Mode & Streaming
+- Objective: Deliver `--download`, `--output`, and overwrite safeguards so large responses stream to disk similar to `httpie-go`.
+- Proposed scope to confirm with user: Extend `RequestTransport` with streaming body support and progress hooks, add a file writer that uses temp files plus atomic moves, wire CLI parsing/rendering for the new flags, and expand the in-process server with chunked/large-payload fixtures.
+- Candidate test plan: Transport unit specs covering chunked transfers and interrupted streams, integration tests saving responses to temporary directories (including overwrite/permission failures), and CLI assertions for stdout/stderr separation plus exit codes.
+- Exit artifact: Track progress in `context/phase-008.md`.
 
 ### Phase 009 — Documentation & Release Readiness
-- Objective: Prepare the project for an open-source initial release with clear positioning, onboarding docs, and publishing automation.
-- Proposed scope to confirm with user: Author a comprehensive `README.md` (purpose, install/run, CLI usage, library embedding), surface feature parity status from `context/feature-checklist.md`, add licensing/CONTRIBUTING notes, and script basic release tasks (version bumps, changelog seed).
-- Candidate test plan: Lint documentation links/examples, run `swift build`/`swift test` in release mode, and exercise the example CLI walkthrough end to end.
+- Objective: Prepare the project for an open-source initial release with polished onboarding and automation.
+- Proposed scope to confirm with user: Rework the README and quick-start sections for both network and peer transports, surface feature parity status, integrate DocC generation into tooling, and script version bump/changelog scaffolding.
+- Candidate test plan: Documentation linting/link checks, `swift build --configuration release`, and scripted walkthroughs of the published examples.
 - Exit artifact: Capture doc/release decisions in `context/phase-009.md`.
 
 ### Phase 010 — Sessions & Cookie Persistence
 - Objective: Introduce `--session`, read-only sessions, and cookie jar management to begin covering HTTPie doc parity beyond Go’s subset.
-- Proposed scope to confirm with user: Design session file format, persistence locations, concurrency guarantees, and ensure cookies/auth headers survive between invocations.
-- Candidate test plan: Integration tests that write session files, reuse them across invocations, and verify cookie jar updates; unit tests for serialization/deserialization edge cases.
+- Proposed scope to confirm with user: Define session file format and storage locations, persist cookies/auth headers between runs, expose CLI flags/help text, and ensure peer mode stays deterministic without session bleed.
+- Candidate test plan: Integration tests that write/read session files across invocations (network and peer transports), unit specs for serialization edge cases, and CLI cases for read-only versus mutable sessions.
 - Exit artifact: Track progress in `context/phase-010.md`.
 
 ### Phase 011 — Polish & Extended Parity

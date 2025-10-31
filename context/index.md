@@ -13,6 +13,9 @@
 - [./phase-003.md](./phase-003.md) -- Phase 003 notes covering transport abstraction, fake implementations, and CLI response rendering.
 - [./phase-004.md](./phase-004.md) -- Phase 004 notes on the in-process Swift HTTP test server design, endpoints, and fixtures.
 - [./phase-005.md](./phase-005.md) -- Phase 005 notes on the real network transport and CLI integration.
+- [./phase-006.md](./phase-006.md) -- Phase 006 notes on authentication, verification, and timeout flags.
+- [./phase-007.md](./phase-007.md) -- Phase 007 notes on the peer-mode library and example CLI workflow.
+- [./phase-008.md](./phase-008.md) -- Phase 008 notes on download mode, file streaming, and overwrite safeguards.
 
 ## Submodules
 

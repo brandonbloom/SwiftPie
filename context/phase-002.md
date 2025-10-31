@@ -21,7 +21,7 @@
 - Confirm with user if an alternative Go reference is available or if Python suite alignment is sufficient.
 
 ## 2025-10-30 Progress
-- Added `SwiftHTTPieCoreTests/RequestParserTests.swift` scenarios mirroring `TestItemParsing`, `TestQuerystring`, `TestLocalhostShorthand`, and method inference cases via the Swift Testing `#expect` macro.
+- Added `SwiftHTTPieTests/RequestParserTests.swift` scenarios mirroring `TestItemParsing`, `TestQuerystring`, `TestLocalhostShorthand`, and method inference cases via the Swift Testing `#expect` macro.
 - Implemented `RequestParser` backing types to satisfy tests: separator discovery with escape handling, JSON value decoding, localhost shorthand expansion, and query merge behaviour.
 - Adopted the toolchain-provided Testing module (macOS 14 baseline) so `swift test` runs cleanly without external dependencies or deprecation warnings.
 

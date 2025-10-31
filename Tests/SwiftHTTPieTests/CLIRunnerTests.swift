@@ -6,7 +6,7 @@ import Glibc
 
 import HTTPTypes
 import Testing
-@testable import SwiftHTTPieCore
+@testable import SwiftHTTPie
 
 @Suite("CLI runner")
 struct CLIRunnerTests {

@@ -10,12 +10,16 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "SwiftHTTPieCore",
-            targets: ["SwiftHTTPieCore"]
+            name: "SwiftHTTPie",
+            targets: ["SwiftHTTPie"]
         ),
         .executable(
-            name: "SwiftHTTPie",
+            name: "swift-httpie",
             targets: ["SwiftHTTPieCLI"]
+        ),
+        .executable(
+            name: "PeerDemo",
+            targets: ["PeerDemo"]
         ),
     ],
     dependencies: [
@@ -25,7 +29,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "SwiftHTTPieCore",
+            name: "SwiftHTTPie",
             dependencies: [
                 .product(name: "HTTPTypes", package: "swift-http-types")
             ]
@@ -33,19 +37,29 @@ let package = Package(
         .executableTarget(
             name: "SwiftHTTPieCLI",
             dependencies: [
-                "SwiftHTTPieCore"
+                "SwiftHTTPie"
             ]
         ),
-        .testTarget(
-            name: "SwiftHTTPieCoreTests",
+        .executableTarget(
+            name: "PeerDemo",
             dependencies: [
-                "SwiftHTTPieCore",
+                "SwiftHTTPie",
+                "SwiftHTTPieTestSupport",
+            ],
+            path: "Examples/PeerDemo"
+        ),
+        .testTarget(
+            name: "SwiftHTTPieTests",
+            dependencies: [
+                "SwiftHTTPie",
                 "SwiftHTTPieTestSupport"
-            ]
+            ],
+            path: "Tests/SwiftHTTPieTests"
         ),
         .target(
             name: "SwiftHTTPieTestSupport",
             dependencies: [
+                "SwiftHTTPie",
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
@@ -53,6 +67,14 @@ let package = Package(
                 .product(name: "NIOSSL", package: "swift-nio-ssl")
             ],
             path: "Tests/TestSupport"
+        ),
+        .target(
+            name: "SwiftHTTPieDocs",
+            dependencies: ["SwiftHTTPie"],
+            path: "Docs",
+            resources: [
+                .copy("SwiftHTTPie.docc")
+            ]
         ),
     ]
 )

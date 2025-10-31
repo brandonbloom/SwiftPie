@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import SwiftHTTPieTestSupport
-@testable import SwiftHTTPieCore
+@testable import SwiftHTTPie
 
 @Suite("URLSession transport")
 struct URLSessionTransportTests {

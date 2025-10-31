@@ -10,9 +10,17 @@ echo "Building SwiftHTTPie CLI..."
 swift build > /dev/null
 
 echo "Running SwiftHTTPie smoke test..."
-if swift run SwiftHTTPie --help > /dev/null; then
+if swift run swift-httpie --help > /dev/null; then
   echo "Smoke test passed."
 else
   echo "Smoke test failed." >&2
+  exit 1
+fi
+
+echo "Running PeerDemo smoke test..."
+if swift run PeerDemo /get > /dev/null; then
+  echo "PeerDemo smoke test passed."
+else
+  echo "PeerDemo smoke test failed." >&2
   exit 1
 fi

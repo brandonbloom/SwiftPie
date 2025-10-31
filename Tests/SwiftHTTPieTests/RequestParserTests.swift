@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import SwiftHTTPieCore
+@testable import SwiftHTTPie
 
 @Suite("Request parsing")
 struct RequestParserTests {

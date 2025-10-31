@@ -4,6 +4,6 @@ import Darwin
 import Glibc
 #endif
 
-import SwiftHTTPieCore
+import SwiftHTTPie
 
 SwiftHTTPie.main(arguments: CommandLine.arguments)

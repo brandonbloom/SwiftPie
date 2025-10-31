@@ -19,6 +19,26 @@
       "target": "SwiftHTTPie",
       "configuration": "release",
       "preLaunchTask": "swift: Build Release SwiftHTTPie"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:SwiftHTTPie}",
+      "name": "Debug PeerDemo",
+      "target": "PeerDemo",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug PeerDemo"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:SwiftHTTPie}",
+      "name": "Release PeerDemo",
+      "target": "PeerDemo",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release PeerDemo"
     }
   ]
 }

@@ -3,6 +3,7 @@ import NIO
 import NIOConcurrencyHelpers
 import NIOHTTP1
 import NIOPosix
+import SwiftHTTPie
 
 // MARK: - Public API
 
@@ -26,7 +27,7 @@ public struct CapturedRequest: Sendable {
         public var value: String
     }
 
-    public var method: HTTPMethod
+    public var method: NIOHTTP1.HTTPMethod
     public var uri: String
     public var path: String
     public var queryParameters: [String: [String]]
@@ -151,7 +152,7 @@ final class NIOHTTPTestServer {
 
         let baseURL = URL(string: "http://\(configuration.host):\(port)")!
 
-        return NIOHTTPTestServer(
+        let server = NIOHTTPTestServer(
             baseURL: baseURL,
             configuration: configuration,
             recorder: recorder,
@@ -159,6 +160,9 @@ final class NIOHTTPTestServer {
             channel: channel,
             router: router
         )
+
+        router.baseURL = baseURL
+        return server
     }
 
     func shutdown() throws {
@@ -192,9 +196,10 @@ final class RequestRecorder: @unchecked Sendable {
 
 // MARK: - Router
 
-struct TestServerRouter: @unchecked Sendable {
+final class TestServerRouter: @unchecked Sendable {
     private let recorder: RequestRecorder
     private let allocator = ByteBufferAllocator()
+    var baseURL: URL?
 
     init(recorder: RequestRecorder) {
         self.recorder = recorder
@@ -206,150 +211,9 @@ struct TestServerRouter: @unchecked Sendable {
     ) -> TestServerResponse {
         recorder.record(request)
 
-        switch (head.method, request.path) {
-        case (_, "/get"):
-            return makeGetResponse(for: request)
-
-        case (_, "/post"):
-            return makePostResponse(for: request)
-
-        case (_, "/headers"):
-            return makeHeadersResponse(for: request)
-
-        case (_, _):
-            if request.path.hasPrefix("/status/"),
-               let response = makeStatusResponse(for: request) {
-                return response
-            }
-
-            if request.path == "/redirect-to",
-               let response = makeRedirectToResponse(for: request) {
-                return response
-            }
-
-            if request.path.hasPrefix("/redirect/"),
-               let response = makeRedirectLoopResponse(for: request) {
-                return response
-            }
-
-            if request.path == "/cookies" {
-                return makeCookiesResponse(for: request)
-            }
-
-            if request.path == "/cookies/set" {
-                return makeSetCookiesResponse(for: request)
-            }
-
-            return TestServerResponse.json(
-                ["error": "not_found", "path": request.path],
-                status: .notFound,
-                allocator: allocator
-            )
-        }
-    }
-
-    private func makeGetResponse(for request: CapturedRequest) -> TestServerResponse {
-        TestServerResponse.json(
-            [
-                "args": request.singleValueQuery,
-                "headers": request.headerDictionary,
-                "url": request.fullURL(baseURL: nil),
-            ],
-            allocator: allocator
-        )
-    }
-
-    private func makePostResponse(for request: CapturedRequest) -> TestServerResponse {
-        let contentType = request.headerValues(for: "Content-Type").first?.lowercased() ?? ""
-        let rawBody = String(data: request.body, encoding: .utf8) ?? ""
-
-        var jsonPayload: Any?
-        var formPayload: [String: String] = [:]
-
-        if contentType.contains("application/json") {
-            jsonPayload = try? JSONSerialization.jsonObject(with: request.body, options: [])
-        } else if contentType.contains("application/x-www-form-urlencoded") {
-            formPayload = request.formPayload
-        }
-
-        var object: [String: Any] = [
-            "args": request.singleValueQuery,
-            "headers": request.headerDictionary,
-            "data": rawBody,
-        ]
-
-        if let jsonPayload {
-            object["json"] = jsonPayload
-        } else {
-            object["json"] = NSNull()
-        }
-
-        if !formPayload.isEmpty {
-            object["form"] = formPayload
-        }
-
-        return TestServerResponse.json(object, allocator: allocator)
-    }
-
-    private func makeHeadersResponse(for request: CapturedRequest) -> TestServerResponse {
-        TestServerResponse.json(request.headerDictionary, allocator: allocator)
-    }
-
-    private func makeStatusResponse(for request: CapturedRequest) -> TestServerResponse? {
-        let components = request.path.split(separator: "/")
-        guard let last = components.last, let code = Int(last) else {
-            return nil
-        }
-
-        let status = HTTPResponseStatus(statusCode: code)
-        let bodyText = request.queryParameters["body"]?.last ?? status.reasonPhrase
-
-        return TestServerResponse.text(bodyText, status: status, allocator: allocator)
-    }
-
-    private func makeRedirectToResponse(for request: CapturedRequest) -> TestServerResponse? {
-        guard let target = request.queryParameters["url"]?.last,
-              let location = URL(string: target) else {
-            return nil
-        }
-
-        return TestServerResponse.redirect(to: location.absoluteString, allocator: allocator)
-    }
-
-    private func makeRedirectLoopResponse(for request: CapturedRequest) -> TestServerResponse? {
-        let components = request.path.split(separator: "/")
-        guard components.count == 3, let iterations = Int(components[2]), iterations > 0 else {
-            return nil
-        }
-
-        if iterations == 1 {
-            let location = request.queryParameters["to"]?.last ?? "/get"
-            return TestServerResponse.redirect(to: location, allocator: allocator)
-        } else {
-            let next = "/redirect/\(iterations - 1)"
-            return TestServerResponse.redirect(to: next, allocator: allocator)
-        }
-    }
-
-    private func makeCookiesResponse(for request: CapturedRequest) -> TestServerResponse {
-        let cookies = request.cookies
-        return TestServerResponse.json(["cookies": cookies], allocator: allocator)
-    }
-
-    private func makeSetCookiesResponse(for request: CapturedRequest) -> TestServerResponse {
-        var headers = HTTPHeaders()
-
-        for (name, values) in request.queryParameters {
-            for value in values {
-                headers.add(name: "Set-Cookie", value: "\(name)=\(value)")
-            }
-        }
-
-        return TestServerResponse(
-            status: .ok,
-            headers: headers,
-            body: .empty
-        )
+        let resolvedBase = baseURL ?? URL(string: "http://127.0.0.1")!
+        let payload = TestPeerResponder.respond(to: request, head: head, baseURL: resolvedBase)
+        return TestServerResponse.from(payload, allocator: allocator)
     }
 }
 
@@ -440,49 +304,36 @@ struct TestServerResponse {
     var headers: HTTPHeaders
     var body: Body
 
-    static func json(
-        _ object: Any,
-        status: HTTPResponseStatus = .ok,
+    static func from(
+        _ payload: ResponsePayload,
         allocator: ByteBufferAllocator
     ) -> TestServerResponse {
-        let data = (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])) ?? Data()
-        var headers = HTTPHeaders()
-        headers.add(name: "Content-Type", value: "application/json")
-        return TestServerResponse.data(data, status: status, headers: headers, allocator: allocator)
-    }
+        let status = HTTPResponseStatus(statusCode: payload.response.status.code)
 
-    static func text(
-        _ string: String,
-        status: HTTPResponseStatus = .ok,
-        allocator: ByteBufferAllocator
-    ) -> TestServerResponse {
-        let data = string.data(using: .utf8) ?? Data()
         var headers = HTTPHeaders()
-        headers.add(name: "Content-Type", value: "text/plain; charset=utf-8")
-        return TestServerResponse.data(data, status: status, headers: headers, allocator: allocator)
-    }
+        for field in payload.response.headerFields {
+            headers.add(name: field.name.rawName, value: field.value)
+        }
 
-    static func data(
-        _ data: Data,
-        status: HTTPResponseStatus = .ok,
-        headers: HTTPHeaders? = nil,
-        allocator: ByteBufferAllocator
-    ) -> TestServerResponse {
-        let responseHeaders = headers ?? HTTPHeaders()
-        var buffer = allocator.buffer(capacity: data.count)
-        buffer.writeBytes(data)
+        let body: Body
+        switch payload.body {
+        case .none:
+            body = .empty
+        case .text(let string):
+            var buffer = allocator.buffer(capacity: string.utf8.count)
+            buffer.writeString(string)
+            body = .buffer(buffer)
+        case .data(let data):
+            var buffer = allocator.buffer(capacity: data.count)
+            buffer.writeBytes(data)
+            body = .buffer(buffer)
+        }
 
         return TestServerResponse(
             status: status,
-            headers: responseHeaders,
-            body: .buffer(buffer)
+            headers: headers,
+            body: body
         )
-    }
-
-    static func redirect(to location: String, allocator: ByteBufferAllocator) -> TestServerResponse {
-        var headers = HTTPHeaders()
-        headers.add(name: "Location", value: location)
-        return TestServerResponse(status: .found, headers: headers, body: .empty)
     }
 }
 

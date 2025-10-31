@@ -56,5 +56,5 @@
 ## 2025-10-31 Progress
 - Added a `SwiftHTTPieTestSupport` target powered by SwiftNIO with `withTestServer` helpers (sync + async) that spin up an on-process server and expose request recordings.
 - Implemented core httpbin-like endpoints (`/get`, `/post`, `/headers`, `/status/<code>`, `/redirect-to`, `/redirect/<n>`, `/cookies`, `/cookies/set`) plus request/cookie/form parsing.
-- Added `Tests/SwiftHTTPieCoreTests/TestHTTPServerTests.swift` exercising happy-path GET/POST flows, status codes, cookie issuance, and redirect handling via `URLSession`.
+- Added `Tests/SwiftHTTPieTests/TestHTTPServerTests.swift` exercising happy-path GET/POST flows, status codes, cookie issuance, and redirect handling via `URLSession`.
 - Deferred chunked streaming, delay endpoints, and TLS support to later phases (tracked in Phase 005 scope).

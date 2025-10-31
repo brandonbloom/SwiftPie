@@ -1,6 +1,6 @@
 import HTTPTypes
 import Testing
-@testable import SwiftHTTPieCore
+@testable import SwiftHTTPie
 
 @Suite("Request builder")
 struct RequestBuilderTests {
