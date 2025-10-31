@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "SwiftHTTPie",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     products: [
         .library(
@@ -26,6 +26,12 @@ let package = Package(
             name: "SwiftHTTPieCLI",
             dependencies: [
                 "SwiftHTTPieCore"
+            ]
+        ),
+        .testTarget(
+            name: "SwiftHTTPieCoreTests",
+            dependencies: [
+                "SwiftHTTPieCore",
             ]
         ),
     ]
