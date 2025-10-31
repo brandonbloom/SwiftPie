@@ -1,22 +1,31 @@
-# Phase 008 Notes — Download Mode & Streaming
+# Phase 008 Notes — CLI Help & Usage Parity
 
 ## Objectives
-- Implement `--download` and `--output` so large responses stream to disk instead of stdout.
-- Enforce overwrite safeguards and resume-friendly behavior aligned with HTTPie.
-- Preserve CLI UX expectations for progress reporting, stdout/stderr separation, and exit codes.
+- Rebuild the CLI help/usage output so it mirrors `http --help` for all delivered
+  features, including colorized sections and consistent wording.
+- Ensure help text evolves alongside new functionality by codifying review
+  checklists and test coverage.
 
 ## Proposed Scope
-- Extend `RequestTransport` with streaming body support plus progress callbacks safe for both URLSession and peer transports.
-- Introduce a file writer that streams to temporary files, enforces overwrite protections, and moves atomically into place on success (with hooks for future resume support).
-- Teach the CLI parser about `--download`, `--output`, and related toggles, routing progress metadata to stderr while keeping stdout quiet.
-- Expand `SwiftPieTestSupport` with chunked/large-payload endpoints to serve as deterministic fixtures.
+- Introduce a styled help renderer that outputs colorized sections similar to
+  HTTPie (headers, argument groups, option lists) with terminal detection.
+- Sync existing option descriptions with HTTPie phrasing for matching features
+  and introduce placeholders for not-yet-implemented flags.
+- Add developer tooling/tests that diff SwiftPie’s help output against captured
+  expectations and optionally against the system `http --help` for overlapping
+  sections.
+- Document a contribution guideline requiring every new CLI flag or behaviour to
+  update help text and associated tests.
 
 ## Test Plan Draft
-- Transport unit specs covering chunked transfers, incomplete streams, and progress notifications.
-- Integration tests that download responses to temporary directories, asserting file contents, metadata, and overwrite/permission failure handling.
-- CLI assertions validating stdout/stderr separation, progress output, and exit codes for success and error paths.
+- Snapshot/spec tests asserting the formatted help output (including ANSI
+  sequences when colors are enabled and plain output otherwise).
+- Integration smoke test invoking `SwiftPie --help` through the CLI runner to
+  ensure exit code, stdout, and stderr align with expectations.
+- Optional comparison harness that fetches `http --help` at test time (or via a
+  fixture) to verify shared sections stay aligned.
 
 ## Open Questions
-- Do we need resumable downloads in the first iteration or can we ship append-only safeguards first?
-- Should progress reporting be textual (HTTPie-style) or structured for future TUI integrations?
-- How should `--download` interact with streaming-only responses or transports that lack `Content-Length`?
+- Do we surface unreleased flags with “Coming soon” notes or hide them until
+  implementation?
+- How strict should the help-vs-HTTPie diffing be when HTTPie changes upstream?

@@ -6,31 +6,31 @@ Legend:
 - Status icons — HTTPie ✅, httpie-go ✅/⚠️/❌.
 
 ## HTTP Method & URL Handling
-- [ ] **P0 Methods & verb inference** — HTTPie ✅ | httpie-go ✅ — Custom verbs plus GET/POST defaults based on body presence.
-- [ ] **P0 URL defaults & localhost shortcuts** — HTTPie ✅ | httpie-go ⚠️ — Default scheme, `https` alias, `:/` shorthand; Go lacks `--default-scheme` and `--path-as-is`.
+- [ ] **P0 Methods & verb inference** — HTTPie ✅ | httpie-go ✅ — Custom verbs plus GET/POST defaults based on body presence. (Phase 002 infers GET/POST; custom verb passthrough still pending.)
+- [ ] **P0 URL defaults & localhost shortcuts** — HTTPie ✅ | httpie-go ⚠️ — Default scheme, `https` alias, `:/` shorthand; Go lacks `--default-scheme` and `--path-as-is`. (Phase 002 normalizes bare hosts and `:` shorthands; `https` alias & path-as-is behaviour remain.)
 - [ ] **P2 Additional URL controls (`--default-scheme`, `--path-as-is`)** — HTTPie ✅ | httpie-go ❌ — Expose explicit scheme override and disable path normalization.
 
 ## Request Item Syntax & Payload Shorthands
-- [ ] **P0 Header/data/parameter items (`:`, `=`, `==`)** — HTTPie ✅ | httpie-go ✅ — Colon headers, JSON fields, and query parameter shorthand.
-- [ ] **P0 Raw JSON fields (`:=`, `:=@`)** — HTTPie ✅ | httpie-go ✅ — Preserve non-string JSON types and embed JSON files verbatim.
-- [ ] **P0 File value expansion (`@file`, `@-`)** — HTTPie ✅ | httpie-go ✅ — Read values from files/stdin across headers, params, and data fields.
-- [ ] **P0 Form data (`--form`) with auto-multipart on file fields** — HTTPie ✅ | httpie-go ✅ — URL-encoded forms by default, multipart when uploads present.
-- [ ] **P0 Basic multipart file upload (`field@file`)** — HTTPie ✅ | httpie-go ✅ — Stream file parts with inferred MIME type.
-- [ ] **P0 Raw body via piped stdin** — HTTPie ✅ | httpie-go ✅ — Treat piped stdin as body when no key/value items are supplied.
-- [ ] **P2 Request item escaping (`\`)** — HTTPie ✅ | httpie-go ❌ — Allow literal separators by escaping `:` `=` `@`.
+- [x] **P0 Header/data/parameter items (`:`, `=`, `==`)** — HTTPie ✅ | httpie-go ✅ — Colon headers, JSON fields, and query parameter shorthand. (Phase 002 parser + tests cover duplicates and escaping.)
+- [ ] **P0 Raw JSON fields (`:=`, `:=@`)** — HTTPie ✅ | httpie-go ✅ — Preserve non-string JSON types and embed JSON files verbatim. (`:=` supported; file embeds `:=@` still route through the file field path.)
+- [ ] **P0 File value expansion (`@file`, `@-`)** — HTTPie ✅ | httpie-go ✅ — Read values from files/stdin across headers, params, and data fields. (`@file` works; stdin `@-` and header-from-file plumbing missing.)
+- [ ] **P0 Form data (`--form`) with auto-multipart on file fields** — HTTPie ✅ | httpie-go ✅ — URL-encoded forms by default, multipart when uploads present. (No CLI flag yet; defaults differ from HTTPie/httpie-go.)
+- [x] **P0 Basic multipart file upload (`field@file`)** — HTTPie ✅ | httpie-go ✅ — Stream file parts with inferred MIME type. (Multipart encoding kicks in when files are present; MIME override support later.)
+- [ ] **P0 Raw body via piped stdin** — HTTPie ✅ | httpie-go ✅ — Treat piped stdin as body when no key/value items are supplied. (Standard input currently unused for request bodies.)
+- [x] **P2 Request item escaping (`\`)** — HTTPie ✅ | httpie-go ❌ — Allow literal separators by escaping `:` `=` `@`. (Escaped separators covered by Phase 002 parser.)
 - [ ] **P2 Nested JSON path syntax (`foo[bar]=baz`)** — HTTPie ✅ | httpie-go ❌ — Build nested objects and arrays inline.
 - [ ] **P2 Explicit raw body flags (`--raw`, `--data`, scalar JSON bodies)** — HTTPie ✅ | httpie-go ❌ — Accept arbitrary payloads without constructing objects.
 - [ ] **P2 Explicit multipart control (`--multipart`, `--boundary`)** — HTTPie ✅ | httpie-go ❌ — Force multipart form and customize boundary strings.
 - [ ] **P2 File content-type overrides (`field@file;type=mime`)** — HTTPie ✅ | httpie-go ❌ — Respect explicit MIME hints on uploads.
 
 ## JSON & Output Defaults
-- [ ] **P0 Default JSON behavior & `--json` flag** — HTTPie ✅ | httpie-go ✅ — Auto `Content-Type: application/json` and allow forcing Accept header.
+- [ ] **P0 Default JSON behavior & `--json` flag** — HTTPie ✅ | httpie-go ✅ — Auto `Content-Type: application/json` and allow forcing Accept header. (Current encoder falls back to form bodies unless JSON types are explicit; CLI flag TBD.)
 - [ ] **P2 JSON response detection with faulty `Content-Type`** — HTTPie ✅ | httpie-go ❌ — Heuristically format JSON even when servers mislabel payloads.
 
 ## Headers & Cookies
-- [ ] **P0 Custom headers & multi-value support** — HTTPie ✅ | httpie-go ✅ — Override defaults, set repeated headers, and customize Host.
+- [x] **P0 Custom headers & multi-value support** — HTTPie ✅ | httpie-go ✅ — Override defaults, set repeated headers, and customize Host. (Phase 002 builder keeps duplicates and header removals.)
 - [ ] **P0 Header values from files (`Header:@file`)** — HTTPie ✅ | httpie-go ✅ — Expand file content directly into header fields.
-- [ ] **P2 Header removal & empty headers (`Header:` / `Header;`)** — HTTPie ✅ | httpie-go ❌ — Unset defaults or send explicit empty values.
+- [x] **P2 Header removal & empty headers (`Header:` / `Header;`)** — HTTPie ✅ | httpie-go ❌ — Unset defaults or send explicit empty values. (Phase 002 parser + builder propagate removals and explicit blanks.)
 - [ ] **P2 Response header limit control (`--max-headers`)** — HTTPie ✅ | httpie-go ❌ — Abort when the response sends too many headers.
 - [ ] **P1 Cookie persistence via sessions** — HTTPie ✅ | httpie-go ❌ — Manage cookie jars tied to session files and host binding.
 

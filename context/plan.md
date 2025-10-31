@@ -10,6 +10,7 @@ Workflow Guardrails
 - After each review cycle, remind the user to run `/new` so the conversation context resets before the next phase.
 - Keep the immediately upcoming phases richly detailed; allow later phases to stay high level until the plan is revisited post-review.
 - Update `context/feature-checklist.md` and README/docs alongside each phase so parity status and user-facing guidance stay current.
+- Ensure every CLI-facing change updates the `--help` output (including colorized formatting) and adds/updates tests; compare against `http --help` for matching features to keep wording aligned.
 
 Phase Roadmap
 -------------
@@ -60,29 +61,53 @@ Phase Roadmap
 - Candidate test plan: Unit specs for the peer adapter, a smoke test for the example CLI, and documentation snippets validated via doctests or executable previews.
 - Exit artifact: Track progress in `context/phase-007.md`, including API diagrams and example wiring notes.
 
-### Phase 008 — Download Mode & Streaming
-- Objective: Deliver `--download`, `--output`, and overwrite safeguards so large responses stream to disk similar to `httpie-go`.
-- Proposed scope to confirm with user: Extend `RequestTransport` with streaming body support and progress hooks, add a file writer that uses temp files plus atomic moves, wire CLI parsing/rendering for the new flags, and expand the in-process server with chunked/large-payload fixtures.
-- Candidate test plan: Transport unit specs covering chunked transfers and interrupted streams, integration tests saving responses to temporary directories (including overwrite/permission failures), and CLI assertions for stdout/stderr separation plus exit codes.
+### Phase 008 — CLI Help & Usage Parity (Remaining P0)
+- Objective: Align `SwiftPie --help` with `http --help`, including colorized formatting and accurate descriptions for all delivered features.
+- Proposed scope to confirm with user: Implement a styled help renderer with ANSI colors mirroring HTTPie sections, sync existing option text with HTTPie wording, and add tooling/tests ensuring future flag additions update help text. Introduce a doc guideline that help must be updated with every CLI-facing change.
+- Candidate test plan: Snapshot/spec tests for colored and plain help output, CLI integration tests invoking `--help`, and a harness that compares shared sections to `http --help`.
 - Exit artifact: Track progress in `context/phase-008.md`.
 
-### Phase 009 — Documentation & Release Readiness
+### Phase 009 — Download Mode & Streaming
+- Objective: Deliver `--download`, `--output`, and overwrite safeguards so large responses stream to disk similar to `httpie-go`.
+- Proposed scope to confirm with user: Extend `RequestTransport` with streaming body support and progress hooks, add a file writer that uses temp files plus atomic moves, wire CLI parsing/rendering for the new flags, and expand the in-process server with chunked/large-payload fixtures.
+- Candidate test plan: Transport unit specs covering chunked transfers and interrupted streams, integration tests saving responses to temporary directories (including overwrite/permission failures), and CLI assertions validating stdout/stderr separation plus exit codes.
+- Exit artifact: Track progress in `context/phase-009.md`.
+
+### Phase 010 — Method & URL Parity (Remaining P0)
+- Objective: Align CLI method and URL behavior with httpie-go so custom verbs, HTTPS shorthands, and default schemes match user expectations.
+- Proposed scope to confirm with user: Allow arbitrary method tokens (preserving GET/POST inference), implement the `https` shorthand (e.g. `https pie.dev/get` → `https://pie.dev/get`), honour existing localhost shorthands, and surface a CLI toggle for default scheme selection (with docs clarifying Go’s behavior).
+- Candidate test plan: Parser specs covering custom verbs, explicit scheme overrides, and shorthand permutations; CLI-level tests verifying help/output for malformed methods and default-scheme toggles; integration smoke tests hitting the peer transport with nonstandard verbs.
+- Exit artifact: Capture outcomes in `context/phase-010.md`, noting any divergence kept for later phases.
+
+### Phase 011 — Request Body Defaults & CLI Flags (Remaining P0)
+- Objective: Match httpie-go’s request-construction defaults, including `--json`, `--form`, `--raw`, file/header expansion, and stdin piping.
+- Proposed scope to confirm with user: Default plain `key=value` items to JSON bodies, add `--json`/`--form`/`--raw` flags, support `:=@file`, `=@file`, header/file `@` expansion, and `@-` stdin consumption with validation errors mirroring HTTPie. Update help text and docs accordingly.
+- Candidate test plan: Unit tests for each shorthand/flag combination, CLI integration tests covering stdin piping, file embeds, conflicting flag errors, and regression tests ensuring multipart/form transitions stay deterministic.
+- Exit artifact: Document behaviour and test coverage in `context/phase-011.md`.
+
+### Phase 012 — Redirects & Status Controls (Remaining P0)
+- Objective: Implement `--follow`, `--check-status`, and related exit-code handling to reach httpie-go’s execution parity.
+- Proposed scope to confirm with user: Add redirect following with loop protection and `--max-redirects`, wire `--check-status` exit mapping (including 3xx handling without follow), update response formatting for redirect chains, and expose stderr diagnostics for status failures.
+- Candidate test plan: Integration tests using the in-process server to exercise redirect loops, 3xx/4xx/5xx cases with/without follow, and transport error boundaries; CLI assertions for exit codes and stderr messages.
+- Exit artifact: Record redirects/status behaviour in `context/phase-012.md`.
+
+### Phase 013 — Documentation & Release Readiness
 - Objective: Prepare the project for an open-source initial release with polished onboarding and automation.
 - Proposed scope to confirm with user: Rework the README and quick-start sections for both network and peer transports, surface feature parity status, integrate DocC generation into tooling, and script version bump/changelog scaffolding.
 - Candidate test plan: Documentation linting/link checks, `swift build --configuration release`, and scripted walkthroughs of the published examples.
-- Exit artifact: Capture doc/release decisions in `context/phase-009.md`.
+- Exit artifact: Capture doc/release decisions in `context/phase-013.md`.
 
-### Phase 010 — Sessions & Cookie Persistence
+### Phase 014 — Sessions & Cookie Persistence
 - Objective: Introduce `--session`, read-only sessions, and cookie jar management to begin covering HTTPie doc parity beyond Go’s subset.
 - Proposed scope to confirm with user: Define session file format and storage locations, persist cookies/auth headers between runs, expose CLI flags/help text, and ensure peer mode stays deterministic without session bleed.
 - Candidate test plan: Integration tests that write/read session files across invocations (network and peer transports), unit specs for serialization edge cases, and CLI cases for read-only versus mutable sessions.
-- Exit artifact: Track progress in `context/phase-010.md`.
+- Exit artifact: Track progress in `context/phase-014.md`.
 
-### Phase 011 — Polish & Extended Parity
+### Phase 015 — Polish & Extended Parity
 - Objective: Layer on advanced HTTPie behaviors (verbose mode, streaming output formatting, colors) and stabilize for release.
 - Proposed scope to confirm with user: Additional CLI flags (verbose, offline, pretty-print), UX refinements, documentation, and packaging/distribution.
 - Candidate test plan: Regression suite covering critical flags, golden-file output comparisons, documentation linting, and smoke tests across macOS targets.
-- Exit artifact: Summarize outcomes in `context/phase-011.md`.
+- Exit artifact: Summarize outcomes in `context/phase-015.md`.
 
 Plan Maintenance
 ----------------

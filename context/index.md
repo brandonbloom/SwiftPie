@@ -16,7 +16,8 @@
 - [./phase-005.md](./phase-005.md) -- Phase 005 notes on the real network transport and CLI integration.
 - [./phase-006.md](./phase-006.md) -- Phase 006 notes on authentication, verification, and timeout flags.
 - [./phase-007.md](./phase-007.md) -- Phase 007 notes on the peer-mode library and example CLI workflow.
-- [./phase-008.md](./phase-008.md) -- Phase 008 notes on download mode, file streaming, and overwrite safeguards.
+- [./phase-008.md](./phase-008.md) -- Phase 008 notes on CLI help/usage parity and documentation guardrails.
+- [./phase-009.md](./phase-009.md) -- Phase 009 notes on download mode, file streaming, and overwrite safeguards.
 
 ## Submodules
 

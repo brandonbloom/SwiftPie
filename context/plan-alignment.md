@@ -1,52 +1,66 @@
-# Plan Alignment Review — 2025-11-02
+# Plan Alignment Review — 2025-11-05
 
-This note captures how the current phase roadmap (`context/plan.md`) lines up with
-the original SwiftPie concept and the HTTPie/httpie-go feature checklist.
+This refresh captures how the current roadmap (`context/plan.md`) lines up with
+the SwiftPie concept and the httpie-go parity target after Phase 007.
 
-## Concept Deliverables
-- ✅ Phases 001 – 005 focus on bringing the CLI from scaffold to a working
-  transport that can hit real HTTP endpoints, matching the “Swift implementation
-  of an HTTPie-like CLI tool” portion of `context/concept.md`.
-- ⚠️ No phase presently targets the companion library needed for “clientless”
-  HTTPie-style CLIs in Vapor. The roadmap lacks milestones for defining the
-  reusable request/response handler API or demonstrating it inside a sample
-  Vapor target (a core part of `context/swiftpie.md`).
-- ⚠️ Developer experience goals called out in the concept (bootstrapping
-  dependencies, handler lifecycle, Vapor integration) have no assigned owner or
-  acceptance tests in the plan yet.
+## Concept Alignment
+- ✅ **CLI foundation (Phases 001 – 006):** CLI scaffold, rich argument parsing,
+  real `URLSessionTransport`, and the new auth/timeout/TLS flags satisfy the core
+  “Swift HTTPie CLI” concept goals.
+- ✅ **Peer-mode deliverable (Phase 007):** `PeerTransport`, shared responders,
+  and the `PeerDemo` executable land the clientless workflow promised in
+  `context/swiftpie.md`, with tests exercising the in-process adapter.
+- ⚠️ **Developer experience guardrails:** We still lack documented best practices
+  for integrating the peer transport into external apps (dependency lifecycle,
+  logging, metrics). Capturing those patterns in DocC/README remains open.
 
-## Feature Checklist Coverage Snapshot
-- **HTTP Method & URL Handling (P0)** — Method inference and localhost shorthands
-  landed in Phase 002, but support remains limited to the fixed
-  `HTTPMethod` cases (`TRACE`, `CONNECT`, custom verbs are rejected) and the
-  `:alias` shorthand currently produces `http://localhost:alias` instead of
-  HTTPie’s `https://alias` behaviour.
-- **Request Item Syntax & Payload Shorthands (P0)** — Core separators (`:`, `=`,
-  `:=`, `==`) and basic file embeds are implemented, yet HTTPie’s stdin piping
-  (`@-`), header-from-file (`Header:@file`), and `--form`/`--json` toggles are
-  absent. The transport defaults to URL-encoded form bodies for plain `=` items,
-  diverging from HTTPie’s JSON-first default.
-- **JSON & Output Defaults (P0)** — Pretty/JSON flags are unimplemented and
-  heuristics for mislabeled responses are deferred; current output is a minimal
-  status/header dump without formatting controls.
-- **Headers & Cookies (P0/P1)** — Header overrides/removals work, but header
-  file expansion, cookie jars, and session-backed persistence (P1) are untreated.
-- **Authentication & Security (P0)** — No CLI surface for `-a/--auth`,
-  `--verify`, `--timeout`, or HTTP/1.1 forcing; TLS knobs are unscheduled.
-- **Transport Controls (P0)** — Redirect following, `--check-status`,
-  download/output management, and stdin suppression remain unplanned despite
-  being baseline behaviours in HTTPie/httpie-go.
-- **Output & UX (P0/P1)** — Verbose/quiet/print selectors, color/pretty flags,
-  and history/meta options are not yet on the roadmap.
-- **Config & Extensibility (P2+)** — No phases address config files, proxy
-  support, streams, plugins, or update notifications.
+## httpie-go Baseline Snapshot (P0 scope)
+- **Delivered**
+  - Request parser handles headers/data/query shorthands, escaping, header
+    removals, duplicate fields, and multipart uploads when files are present
+    (Phase 002 + `RequestPayloadEncoding`).
+  - CLI flags for `-a/--auth`, bearer auth, password prompting, `--verify`,
+    `--timeout`, `--http1`, and `--ignore-stdin` propagate cleanly into the
+    transport (Phase 006, `CLIRunnerTests`).
+  - Default transport bridges to `URLSession`, respecting timeout/TLS options and
+    returning formatted output; peer transport and example executable verify the
+    alternate execution path (Phases 005 – 007).
 
-## Recommended Adjustments
-- Introduce a dedicated phase for the library/clientless deliverable (API shape,
-  Vapor integration example, handler lifecycle tests) so the project satisfies
-  the core concept, not just the CLI.
-- Re-sequence upcoming CLI phases to burn down the remaining P0 checklist items
-  (auth flags, redirect controls, download/session basics, stdin handling)
-  before stretching into P1/P2 ergonomics.
-- Update `context/feature-checklist.md` alongside each phase to mark delivered
-  behaviours, keeping gaps visible for future planning.
+- **Partial / Divergent**
+  - HTTP method handling infers GET/POST correctly but rejects custom verbs and
+    keeps the default scheme at `http://`, whereas httpie-go accepts arbitrary
+    methods and supports the `https` alias.
+  - JSON request defaults still favour URL-encoded forms unless a `:=` field is
+    present; httpie-go auto-emits JSON for bare `key=value` payloads and exposes
+    `--json`.
+  - `:=` JSON literals work, but `:=@file` falls back to the file-field path,
+    and `@-` (stdin) expansion is unimplemented.
+  - Response rendering prints a minimal status/header/body view and lacks
+    `--print`, `-v`, and pretty controls.
+  - `SwiftPie --help` shows a terse option list without HTTPie-style grouping,
+    colors, or wording alignment.
+
+- **Missing**
+  - CLI surface for `--form`, `--json`, raw body flags, and stdin piping; these
+    are essential for httpie-go parity on request construction.
+  - Execution controls such as `--follow`, `--check-status`, and download/output
+    management (`--download`, `--output`, overwrite safeguards) are absent.
+  - Output/UX toggles (`--print`, `-v`, `--pretty`, quiet/history flags) and
+    response heuristics (JSON/coercion) are unscheduled.
+  - Configuration and session management (`--session`, proxy support, config
+    files) remain future phases, matching the broader roadmap.
+
+## Planning Adjustments
+1. **Lock in the remaining P0 work.** Newly added Phases 008–012 cover help
+   parity, download/output flows, method/URL behaviour, request body defaults,
+   and redirect/status controls so all baseline gaps are scheduled before we
+   return to P1 features.
+2. **Add a milestone for method/default-scheme parity.** Track custom verb
+   passthrough and the HTTPS alias so CLI behaviour matches httpie-go (captured
+   in Phase 010).
+3. **Document peer transport integration.** Extend Phase 007 follow-ups (or add
+   a doc-focused sub-phase) to produce DocC/README guidance on embedding the peer
+   adapter, satisfying the remaining concept DX gap.
+4. **Keep `context/feature-checklist.md` in lockstep.** Update the checklist
+   (already refreshed in this review) whenever new flags or behaviours land so
+  parity gaps stay visible.
