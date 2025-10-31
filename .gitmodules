@@ -1,0 +1,12 @@
+[submodule "context/httpie"]
+	path = context/httpie
+	url = git@github.com:httpie/cli.git
+[submodule "context/httpie-go"]
+	path = context/httpie-go
+	url = git@github.com:httpie/cli.git
+[submodule "context/pier"]
+	path = context/pier
+	url = git@github.com:deref/pier.git
+[submodule "context/vapor"]
+	path = context/vapor
+	url = git@github.com:vapor/vapor.git
