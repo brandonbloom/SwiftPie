@@ -19,7 +19,8 @@ struct CLIRunnerTests {
         )
 
         #expect(exitCode == 0)
-        #expect(console.output.contains("usage: spie"))
+        #expect(console.output.contains("Show this help message and exit."))
+        #expect(console.output.contains("Positional Arguments"))
         #expect(console.error.isEmpty)
     }
 

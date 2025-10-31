@@ -51,13 +51,13 @@ the SwiftPie concept and the httpie-go parity target after Phase 007.
     files) remain future phases, matching the broader roadmap.
 
 ## Planning Adjustments
-1. **Lock in the remaining P0 work.** Newly added Phases 008–012 cover help
+1. **Lock in the remaining P0 work.** Newly added Phases 008–013 cover help
    parity, download/output flows, method/URL behaviour, request body defaults,
    and redirect/status controls so all baseline gaps are scheduled before we
    return to P1 features.
 2. **Add a milestone for method/default-scheme parity.** Track custom verb
    passthrough and the HTTPS alias so CLI behaviour matches httpie-go (captured
-   in Phase 010).
+   in Phase 011).
 3. **Document peer transport integration.** Extend Phase 007 follow-ups (or add
    a doc-focused sub-phase) to produce DocC/README guidance on embedding the peer
    adapter, satisfying the remaining concept DX gap.

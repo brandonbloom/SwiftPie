@@ -6,6 +6,7 @@ import Glibc
 
 import Foundation
 import HTTPTypes
+import Rainbow
 
 public enum SwiftPie {
     /// Primary entry point invoked by the CLI executable.
@@ -414,19 +415,115 @@ private struct CLIRunner<Transport: RequestTransport> {
     }
 
     private var helpText: String {
-        """
-        usage: spie [options] <HTTP request parts>
+        var lines: [String] = []
 
-        options:
-          -h, --help          Show this help message and exit.
-          -a, --auth CRED     Send credentials (user:pass). Prompts if password missing.
-              --auth-type T   Authentication scheme (basic, bearer).
-              --timeout SEC   Set request timeout in seconds.
-              --verify [BOOL] Toggle TLS verification (use --verify=false to disable).
-              --http1         Force HTTP/1.1 for the request.
-          -I, --ignore-stdin  Do not read stdin or prompt for passwords.
+        lines.append(heading("SwiftPie"))
+        lines.append("  Modern, Swift-native command-line HTTP client inspired by HTTPie.")
+        lines.append("")
 
-        """
+        lines.append(heading("Usage"))
+        lines.append("  \(command("spie")) \(argument("[METHOD]")) \(argument("URL")) \(argument("[REQUEST_ITEM ...]"))")
+        lines.append("")
+
+        lines.append(heading("Positional Arguments"))
+        lines.append(contentsOf: labeledBlock(
+            label: "METHOD",
+            details: [
+                "Optional. \(command("spie")) infers GET unless data or file items are supplied; then POST is used.",
+                "Supported methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS."
+            ]
+        ))
+        lines.append("")
+        lines.append(contentsOf: labeledBlock(
+            label: "URL",
+            details: [
+                "Required. Provide an absolute URL or use localhost shorthands like \(example(":/status/200")).",
+                "Schemes default to http:// when omitted."
+            ]
+        ))
+        lines.append("")
+        lines.append(contentsOf: labeledBlock(
+            label: "REQUEST_ITEM",
+            details: [
+                "Optional key/value tokens that become headers, query params, body data, or file uploads.",
+                "\(separator(":")) headers — use a trailing colon to clear a header, e.g. \(example("Header:")).",
+                "\(separator("==")) query parameters appended to the URL.",
+                "\(separator("=")) data fields encoded as form data by default.",
+                "\(separator(":=")) JSON literals such as \(example("flag:=true")) or \(example("count:=42")).",
+                "\(separator("@")) file uploads trigger multipart form data."
+            ]
+        ))
+        lines.append("")
+
+        lines.append(heading("Authentication"))
+        lines.append(optionLine(flags: "-a, --auth CRED", description: "Send credentials (user:pass). Prompts if the password is omitted."))
+        lines.append(optionLine(flags: "    --auth-type {basic|bearer}", description: "Select the authentication scheme; defaults to basic."))
+        lines.append("")
+
+        lines.append(heading("Transport"))
+        lines.append(optionLine(flags: "    --timeout SEC", description: "Set the request timeout in seconds (must be positive)."))
+        lines.append(optionLine(flags: "    --verify [BOOL]", description: "Set to false (or no/0) to disable TLS verification; defaults to true."))
+        lines.append(optionLine(flags: "    --http1", description: "Force HTTP/1.1 for the request."))
+        lines.append("")
+
+        lines.append(heading("Input & Prompts"))
+        lines.append(optionLine(flags: "-I, --ignore-stdin", description: "Skip reading stdin and disable interactive password prompts."))
+        lines.append("")
+
+        lines.append(heading("Help"))
+        lines.append(optionLine(flags: "-h, --help", description: "Show this help message and exit."))
+        lines.append("")
+
+        lines.append("  Colors are disabled automatically when output is redirected.")
+
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    private func heading(_ text: String) -> String {
+        text.bold.green
+    }
+
+    private func command(_ text: String) -> String {
+        text.bold
+    }
+
+    private func argument(_ text: String) -> String {
+        text.cyan
+    }
+
+    private func separator(_ text: String) -> String {
+        text.magenta
+    }
+
+    private func example(_ text: String) -> String {
+        text.blue
+    }
+
+    private func labeledBlock(label: String, details: [String]) -> [String] {
+        var lines: [String] = []
+        lines.append("  \(labelStyle(label))")
+        for detail in details {
+            lines.append("    \(detail)")
+        }
+        return lines
+    }
+
+    private func optionLine(flags: String, description: String) -> String {
+        let indentString = "  "
+        let paddingWidth = 34
+        let styledFlags = flagStyle(flags)
+        let visibleCount = flags.count
+        let paddingCount = max(1, paddingWidth - visibleCount)
+        let padding = String(repeating: " ", count: paddingCount)
+        return "\(indentString)\(styledFlags)\(padding)\(description)"
+    }
+
+    private func flagStyle(_ text: String) -> String {
+        text.magenta
+    }
+
+    private func labelStyle(_ text: String) -> String {
+        text.bold.green
     }
 
     private func exitCode(for status: HTTPResponse.Status) -> Int {

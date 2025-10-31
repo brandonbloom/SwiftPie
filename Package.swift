@@ -25,13 +25,15 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.61.0"),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.25.0")
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.25.0"),
+        .package(url: "https://github.com/onevcat/Rainbow.git", from: "4.0.0")
     ],
     targets: [
         .target(
             name: "SwiftPie",
             dependencies: [
-                .product(name: "HTTPTypes", package: "swift-http-types")
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Rainbow", package: "Rainbow")
             ]
         ),
         .executableTarget(
