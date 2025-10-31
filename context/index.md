@@ -4,6 +4,8 @@
 - [./concept.md](./concept.md) -- High-level SwiftHTTPie project concept.
 - [./swifthttpie.md](./swifthttpie.md) -- Working vision, workflow, and feature priorities.
 - [./feature-checklist.md](./feature-checklist.md) -- HTTPie vs httpie-go feature parity checklist with Swift priorities.
+- [./plan.md](./plan.md) -- Incremental delivery plan and phase workflow checkpoints.
+- `./phase-00N.md` -- Phase-specific notes, tests, and review outcomes captured per phase (create on demand).
 
 ## Submodules
 
