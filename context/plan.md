@@ -33,23 +33,29 @@ Phase Roadmap
 - Candidate test plan: Use fake transports to simulate success/error/timeout scenarios, snapshot assertions for formatted output, and verify stderr/exit behavior for transport failures.
 - Exit artifact: Document decisions/tests in `context/phase-003.md`.
 
-### Phase 004 — Real Network Transport
-- Objective: Wire the transport protocol into a production HTTP client implementation.
-- Proposed scope to confirm with user: Choose a concrete client (`URLSession`, `AsyncHTTPClient`, etc.), support streaming bodies, TLS/custom trust hooks, and map metadata cleanly between layers.
-- Candidate test plan: Integration tests hitting a controllable test server (HTTPBin fixtures or local service) validating verbs, headers, payload types, redirects, and error propagation; retain fake transport support for deterministic tests.
-- Exit artifact: Capture architecture decisions in `context/phase-004.md`.
+### Phase 004 — Local Test Server
+- Objective: Provide a deterministic HTTP target that runs inside the test suite so transport/integration tests never reach the public internet.
+- Proposed scope to confirm with user: Stand up a lightweight server on top of SwiftNIO (matching Vapor’s stack) exposing the core endpoints we need immediately (`/get`, `/post`, `/headers`, `/status/{code}`, redirects, cookies). Package it so tests can start/stop it on demand and share helpers for request assertions. Defer TLS and streaming/timeout endpoints to later phases.
+- Candidate test plan: Unit-test the handlers directly, furnish integration helpers that run against the in-process server, and confirm we can simulate success, client/server errors, redirects, and cookie handling without flakiness. Note follow-ups for TLS/streaming coverage once those endpoints arrive.
+- Exit artifact: Capture setup instructions, endpoints, and extension guidelines in `context/phase-004.md`.
 
-### Phase 005 — Sessions, Downloads, Auth
+### Phase 005 — Real Network Transport
+- Objective: Wire the transport protocol into a production HTTP client implementation.
+- Proposed scope to confirm with user: Choose a concrete client (`URLSession`, `AsyncHTTPClient`, etc.), support streaming bodies, TLS/custom trust hooks, and map metadata cleanly between layers. Expand the local test server as needed (TLS certs, streaming endpoints) to exercise these behaviors.
+- Candidate test plan: Integration tests hitting the local test server validating verbs, headers, payload types, redirects, and error propagation; retain fake transport support for deterministic tests.
+- Exit artifact: Capture architecture decisions in `context/phase-005.md`.
+
+### Phase 006 — Sessions, Downloads, Auth
 - Objective: Reach httpie-go-level parity for session persistence, downloads, and authentication switches.
 - Proposed scope to confirm with user: Session persistence format/location, download streaming to files/stdout, credential parsing (basic, bearer, prompt) and related CLI flags; ensure compatibility with request-building semantics from Phase 002.
 - Candidate test plan: Integration tests covering session reuse, download verification via fixtures, and auth flows including prompt suppression.
-- Exit artifact: Track progress in `context/phase-005.md`.
+- Exit artifact: Track progress in `context/phase-006.md`.
 
-### Phase 006 — Polish & Extended Parity
+### Phase 007 — Polish & Extended Parity
 - Objective: Layer on advanced HTTPie behaviors (verbose mode, streaming, colors) and stabilize for release.
 - Proposed scope to confirm with user: Additional CLI flags (verbose, offline, pretty-print), UX refinements, documentation, and packaging/distribution.
 - Candidate test plan: Regression suite covering critical flags, golden-file output comparisons, documentation linting, and smoke tests across macOS targets.
-- Exit artifact: Summarize outcomes in `context/phase-006.md`.
+- Exit artifact: Summarize outcomes in `context/phase-007.md`.
 
 Plan Maintenance
 ----------------

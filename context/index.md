@@ -10,6 +10,7 @@
 - [./phase-001.md](./phase-001.md) -- Phase 001 notes capturing CLI scaffold decisions and test results.
 - [./phase-002.md](./phase-002.md) -- Phase 002 notes on request parsing scope, reference tests, and follow-ups.
 - [./phase-003.md](./phase-003.md) -- Phase 003 notes covering transport abstraction, fake implementations, and CLI response rendering.
+- [./phase-004.md](./phase-004.md) -- Phase 004 notes on the in-process Swift HTTP test server design, endpoints, and fixtures.
 
 ## Submodules
 
