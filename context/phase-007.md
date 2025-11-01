@@ -28,3 +28,4 @@
 - Refactored the in-process NIO test server to delegate to a shared `TestPeerResponder`, enabling responder reuse across tests and the new `PeerDemo` example.
 - Introduced `PeerTransportTests` and updated existing integration tests to exercise the shared responder path; `swift test` now covers peer-mode flows.
 - Created the `PeerDemo` executable plus README/DocC documentation and extended `scripts/smoke-cli.sh` to smoke both executables.
+- Added `SwiftPie.run`/`SwiftPie.main` convenience overloads that wrap a `PeerResponder`, updated `PeerDemo` to use the shorthand, and expanded CLI tests to cover the new entry point.

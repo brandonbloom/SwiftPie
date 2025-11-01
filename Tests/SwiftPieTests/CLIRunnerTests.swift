@@ -4,6 +4,7 @@ import Darwin
 import Glibc
 #endif
 
+import Foundation
 import HTTPTypes
 import Testing
 @testable import SwiftPie
@@ -371,6 +372,54 @@ struct CLIRunnerTests {
         #expect(console.error.contains("unsupported auth type 'digest'"))
     }
 
+    @Test("Convenience run executes peer responder closure")
+    func convenienceRunUsesPeerResponder() throws {
+        let recorder = PeerRequestRecorder()
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "https://example.local/get"],
+            responder: { request in
+                recorder.capture(request)
+                return ResponsePayload(
+                    response: HTTPResponse(status: .ok),
+                    body: .text("peer response")
+                )
+            }
+        )
+
+        #expect(exitCode == 0)
+
+        let captured = try #require(recorder.request)
+        #expect(captured.request.method == .get)
+        #expect(captured.request.scheme == "https")
+        #expect(captured.request.authority == "example.local")
+        #expect(captured.request.path == "/get")
+    }
+
+    @Test("Convenience run allows overriding parser options")
+    func convenienceRunRespectsParserOptions() throws {
+        let recorder = PeerRequestRecorder()
+        let baseURL = try #require(URL(string: "https://peer.local"))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "/status/201"],
+            parserOptions: RequestParserOptions(baseURL: baseURL),
+            responder: { request in
+                recorder.capture(request)
+                return ResponsePayload(
+                    response: HTTPResponse(status: .created),
+                    body: .none
+                )
+            }
+        )
+
+        #expect(exitCode == 0)
+
+        let captured = try #require(recorder.request)
+        #expect(captured.request.authority == "peer.local")
+        #expect(captured.request.path == "/status/201")
+    }
+
     @Test("Rejects auth type usage without credentials")
     func rejectsAuthTypeWithoutCredentials() {
         let console = ConsoleRecorder()
@@ -388,6 +437,23 @@ struct CLIRunnerTests {
 
         #expect(exitCode == Int(EX_USAGE))
         #expect(console.error.contains("--auth-type requires --auth"))
+    }
+}
+
+private final class PeerRequestRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: PeerRequest?
+
+    func capture(_ request: PeerRequest) {
+        lock.lock()
+        storage = request
+        lock.unlock()
+    }
+
+    var request: PeerRequest? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
     }
 }
 

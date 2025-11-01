@@ -43,6 +43,43 @@ public enum SwiftPie {
         let runner = CLIRunner(arguments: arguments, context: context)
         return runner.run()
     }
+
+    /// Convenience entry point that wires the CLI to an in-process peer responder.
+    /// - Parameters:
+    ///   - arguments: Raw command-line arguments (defaults to `CommandLine.arguments`).
+    ///   - parserOptions: Parser defaults applied before evaluating CLI input.
+    ///   - responder: Closure handling requests without performing network I/O.
+    /// - Returns: Never returns because it terminates the process with the exit code.
+    public static func main(
+        arguments: [String] = CommandLine.arguments,
+        parserOptions: RequestParserOptions = .default,
+        responder: @escaping PeerResponder
+    ) -> Never {
+        let exitCode = run(
+            arguments: arguments,
+            parserOptions: parserOptions,
+            responder: responder
+        )
+        exit(Int32(exitCode))
+    }
+
+    /// Convenience runner that routes requests to a peer responder instead of the network.
+    /// - Parameters:
+    ///   - arguments: Raw command-line arguments (defaults to `CommandLine.arguments`).
+    ///   - parserOptions: Parser defaults applied before evaluating CLI input.
+    ///   - responder: Closure handling requests without performing network I/O.
+    /// - Returns: The CLI exit code without terminating the process.
+    public static func run(
+        arguments: [String] = CommandLine.arguments,
+        parserOptions: RequestParserOptions = .default,
+        responder: @escaping PeerResponder
+    ) -> Int {
+        let context = CLIContext(
+            transport: PeerTransport(responder: responder),
+            parserOptions: parserOptions
+        )
+        return run(arguments: arguments, context: context)
+    }
 }
 
 private struct ParsedCLIOptions {

@@ -46,16 +46,12 @@ Peer mode lets the CLI forward requests directly to Swift responders without a n
 ```swift
 import SwiftPie
 
-let transport = PeerTransport { request in
-    // Inspect request.request (HTTPTypes.HTTPRequest) and request.body
+SwiftPie.main { request in
     var headers = HTTPFields()
     headers[.contentType] = "text/plain; charset=utf-8"
     let response = HTTPResponse(status: .ok, headerFields: headers)
     return ResponsePayload(response: response, body: .text("peer response"))
 }
-
-let context = CLIContext(transport: transport)
-let exitCode = SwiftPie.run(arguments: CommandLine.arguments, context: context)
 ```
 
 Pair it with Vapor or custom responders to embed HTTP workflows directly inside your CLI. To bootstrap quickly, run the included peer demo:
