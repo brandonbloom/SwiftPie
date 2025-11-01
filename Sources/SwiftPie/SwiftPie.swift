@@ -90,10 +90,13 @@ private struct ParsedCLIOptions {
     var authProvided: Bool
     var authType: AuthType
     var authTypeWasExplicit: Bool
-    var verify: TransportOptions.TLSVerification
-    var timeout: TimeInterval?
-    var httpVersionPreference: TransportOptions.HTTPVersionPreference
-    var defaultScheme: RequestParserOptions.DefaultScheme
+   var verify: TransportOptions.TLSVerification
+   var timeout: TimeInterval?
+   var httpVersionPreference: TransportOptions.HTTPVersionPreference
+   var defaultScheme: RequestParserOptions.DefaultScheme
+   var bodyMode: RequestPayload.BodyMode
+   var rawBody: RawBodyInput?
+    var forceJSONAccept: Bool
 }
 
 private enum AuthType {
@@ -104,6 +107,12 @@ private enum AuthType {
 private enum PromptUnavailableReason {
     case ignoreStdin
     case nonInteractive
+}
+
+private enum RawBodyInput: Equatable {
+    case inline(String)
+    case file(URL)
+    case stdin
 }
 
 private struct OptionParser {
@@ -122,6 +131,42 @@ private struct OptionParser {
         var timeout: TimeInterval?
         var httpVersionPreference: TransportOptions.HTTPVersionPreference = .automatic
         var defaultScheme: RequestParserOptions.DefaultScheme = .http
+        var bodyMode: RequestPayload.BodyMode = .json
+        var rawBody: RawBodyInput?
+        var bodyOptionName: String?
+        var forceJSONAccept = false
+
+        func setBodyMode(_ mode: RequestPayload.BodyMode, optionName: String) throws {
+            if let existing = bodyOptionName, existing != optionName {
+                throw CLIOptionError.conflictingBodyOptions(existing, optionName)
+            }
+
+            bodyMode = mode
+            bodyOptionName = optionName
+
+            if mode != .raw {
+                rawBody = nil
+            }
+        }
+
+        func parseRawBody(_ value: String) throws -> RawBodyInput {
+            guard !value.isEmpty else {
+                throw CLIOptionError.invalidRawValue(value)
+            }
+
+            if value.hasPrefix("@") {
+                let pathPortion = String(value.dropFirst())
+                if pathPortion == "-" {
+                    return .stdin
+                }
+                guard !pathPortion.isEmpty else {
+                    throw CLIOptionError.invalidRawValue(value)
+                }
+                return .file(URL(fileURLWithPath: pathPortion))
+            }
+
+            return .inline(value)
+        }
 
         var index = 0
         while index < arguments.count {
@@ -142,6 +187,15 @@ private struct OptionParser {
                         continue
                     case "-I", "--ignore-stdin":
                         ignoreStdin = true
+                        index += 1
+                        continue
+                    case "-j", "--json":
+                        try setBodyMode(.json, optionName: "--json")
+                        forceJSONAccept = true
+                        index += 1
+                        continue
+                    case "-f", "--form":
+                        try setBodyMode(.form, optionName: "--form")
                         index += 1
                         continue
                     case "--http1":
@@ -207,6 +261,16 @@ private struct OptionParser {
                                 }
                                 continue
                             }
+                        case "--raw":
+                            let (value, nextIndex) = try consumeValue(
+                                inline: inlineValue,
+                                currentIndex: index,
+                                option: "--raw"
+                            )
+                            try setBodyMode(.raw, optionName: "--raw")
+                            rawBody = try parseRawBody(value)
+                            index = nextIndex
+                            continue
                         default:
                             throw CLIOptionError.unknownOption(argument)
                         }
@@ -248,7 +312,10 @@ private struct OptionParser {
             verify: verify,
             timeout: timeout,
             httpVersionPreference: httpVersionPreference,
-            defaultScheme: defaultScheme
+            defaultScheme: defaultScheme,
+            bodyMode: bodyMode,
+            rawBody: rawBody,
+            forceJSONAccept: forceJSONAccept
         )
     }
 
@@ -329,6 +396,9 @@ private enum CLIOptionError: Error {
     case authTypeRequiresAuth
     case passwordPromptUnavailable(PromptUnavailableReason)
     case passwordPromptCancelled
+    case conflictingBodyOptions(String, String)
+    case invalidRawValue(String)
+    case stdinDisabled
 }
 
 private extension CLIOptionError {
@@ -355,6 +425,12 @@ private extension CLIOptionError {
             }
         case .passwordPromptCancelled:
             return "password prompt cancelled"
+        case .conflictingBodyOptions(let existing, let option):
+            return "conflicting body options '\(existing)' and '\(option)'"
+        case .invalidRawValue(let value):
+            return "invalid raw body value '\(value)'"
+        case .stdinDisabled:
+            return "stdin is disabled by --ignore-stdin"
         }
     }
 }
@@ -443,11 +519,41 @@ private struct CLIRunner<Transport: RequestTransport> {
 
             var parserOptions = context.parserOptions
             parserOptions.defaultScheme = options.defaultScheme
-            let parsed = try RequestParser.parse(
+            var parsed = try RequestParser.parse(
                 arguments: options.arguments,
                 options: parserOptions
             )
-            var payload = try RequestBuilder.build(from: parsed)
+
+            let needsStdin = requiresStdin(parsed: parsed, rawBody: options.rawBody)
+
+            if needsStdin && options.ignoreStdin {
+                throw CLIOptionError.stdinDisabled
+            }
+
+            var stdinData: Data?
+            if needsStdin {
+                stdinData = try context.input.readAllData()
+            }
+
+            if let data = stdinData {
+                parsed = try expandStdinValues(in: parsed, stdinData: data)
+            }
+
+            let resolvedRawBody = try resolveRawBody(options.rawBody, stdinData: stdinData)
+
+            var payload = try RequestBuilder.build(
+                from: parsed,
+                bodyMode: options.bodyMode,
+                rawBody: resolvedRawBody
+            )
+
+            if options.forceJSONAccept,
+               let acceptName = HTTPField.Name("Accept"),
+               RequestPayloadEncoding.shouldApplyDefaultHeader(named: acceptName, for: payload) {
+                var headers = payload.request.headerFields
+                headers[acceptName] = "application/json, */*;q=0.5"
+                payload.request.headerFields = headers
+            }
 
             if options.authProvided, let header = try authorizationHeader(for: options) {
                 payload = applyAuthorization(header, to: payload)
@@ -478,6 +584,127 @@ private struct CLIRunner<Transport: RequestTransport> {
         } catch {
             context.console.error("error: \(error.localizedDescription)\n")
             return ExitCode.failure.rawValue
+        }
+    }
+
+    private func requiresStdin(parsed: ParsedRequest, rawBody: RawBodyInput?) -> Bool {
+        if let rawBody, case .stdin = rawBody {
+            return true
+        }
+
+        if parsed.items.headers.contains(where: { value in
+            if case .stdin = value.value {
+                return true
+            }
+            return false
+        }) {
+            return true
+        }
+
+        if parsed.items.data.contains(where: { field in
+            switch field.value {
+            case .textStdin, .jsonStdin:
+                return true
+            default:
+                return false
+            }
+        }) {
+            return true
+        }
+
+        return false
+    }
+
+    private func expandStdinValues(in request: ParsedRequest, stdinData: Data) throws -> ParsedRequest {
+        var cachedText: String?
+        var cachedJSON: JSONValue?
+
+        func stdinText() -> String {
+            if let cachedText {
+                return cachedText
+            }
+            if let string = String(data: stdinData, encoding: .utf8) {
+                cachedText = string
+                return string
+            }
+            let decoded = String(decoding: stdinData, as: UTF8.self)
+            cachedText = decoded
+            return decoded
+        }
+
+        func stdinJSON() throws -> JSONValue {
+            if let cachedJSON {
+                return cachedJSON
+            }
+            do {
+                let json = try JSONValue.parse(from: stdinData)
+                cachedJSON = json
+                return json
+            } catch {
+                let preview = String(data: stdinData, encoding: .utf8) ?? "<stdin>"
+                throw RequestParserError.invalidJSON(preview)
+            }
+        }
+
+        var headers: [HeaderField] = []
+        headers.reserveCapacity(request.items.headers.count)
+
+        for header in request.items.headers {
+            switch header.value {
+            case .stdin:
+                headers.append(HeaderField(name: header.name, value: .some(stdinText())))
+            default:
+                headers.append(header)
+            }
+        }
+
+        var dataFields: [DataField] = []
+        dataFields.reserveCapacity(request.items.data.count)
+
+        for field in request.items.data {
+            switch field.value {
+            case .textStdin:
+                dataFields.append(DataField(name: field.name, value: .text(stdinText())))
+            case .jsonStdin:
+                dataFields.append(DataField(name: field.name, value: .json(try stdinJSON())))
+            default:
+                dataFields.append(field)
+            }
+        }
+
+        let items = RequestItems(
+            headers: headers,
+            data: dataFields,
+            query: request.items.query,
+            files: request.items.files
+        )
+
+        return ParsedRequest(method: request.method, url: request.url, items: items)
+    }
+
+    private func resolveRawBody(_ input: RawBodyInput?, stdinData: Data?) throws -> RequestPayload.RawBody? {
+        guard let input else {
+            return nil
+        }
+
+        switch input {
+        case .inline(let string):
+            return .inline(string)
+        case .file(let url):
+            do {
+                let data = try Data(contentsOf: url)
+                return .data(data)
+            } catch {
+                throw RequestBuilderError.fileReadFailed(
+                    url: url,
+                    reason: "failed to read raw body file: \(error.localizedDescription)"
+                )
+            }
+        case .stdin:
+            guard let stdinData else {
+                throw RequestBuilderError.stdinUnavailable("raw body")
+            }
+            return .data(stdinData)
         }
     }
 
@@ -515,9 +742,9 @@ private struct CLIRunner<Transport: RequestTransport> {
                 "Optional key/value tokens that become headers, query params, body data, or file uploads.",
                 "\(separator(":")) headers — use a trailing colon to clear a header, e.g. \(example("Header:")).",
                 "\(separator("==")) query parameters appended to the URL.",
-                "\(separator("=")) data fields encoded as form data by default.",
+                "\(separator("=")) data fields encoded as JSON by default (use --form for URL encoding).",
                 "\(separator(":=")) JSON literals such as \(example("flag:=true")) or \(example("count:=42")).",
-                "\(separator("@")) file uploads trigger multipart form data."
+                "\(separator("@")) file uploads trigger multipart form data; \(separator("=@")) and \(separator(":=@")) embed text or JSON files; \(example("@-")) reads from stdin."
             ]
         ))
         lines.append("")
@@ -525,6 +752,12 @@ private struct CLIRunner<Transport: RequestTransport> {
         lines.append(heading("Authentication"))
         lines.append(optionLine(flags: "-a, --auth CRED", description: "Send credentials (user:pass). Prompts if the password is omitted."))
         lines.append(optionLine(flags: "    --auth-type {basic|bearer}", description: "Select the authentication scheme; defaults to basic."))
+        lines.append("")
+
+        lines.append(heading("Body Modes"))
+        lines.append(optionLine(flags: "-j, --json", description: "Explicitly select JSON mode (default) even when no data items are supplied."))
+        lines.append(optionLine(flags: "-f, --form", description: "Send form-encoded data; file items switch to multipart automatically."))
+        lines.append(optionLine(flags: "    --raw VALUE", description: "Bypass encoding and send raw body data (use VALUE, @file, or @- for stdin)."))
         lines.append("")
 
         lines.append(heading("Transport"))

@@ -153,6 +153,31 @@ struct RequestParserTests {
         ])
     }
 
+    @Test("Parses file and stdin value expansions")
+    func parsesValueExpansions() throws {
+        let parsed = try RequestParser.parse(arguments: [
+            "https://example.com",
+            "header:@/tmp/token.txt",
+            "stdin-header:@-",
+            "text=@/tmp/body.txt",
+            "json:=@/tmp/data.json",
+            "stdin=@-",
+            "json-stdin:=@-"
+        ])
+
+        #expect(parsed.items.headers == [
+            HeaderField(name: "header", value: .file(URL(fileURLWithPath: "/tmp/token.txt"))),
+            HeaderField(name: "stdin-header", value: .stdin)
+        ])
+
+        #expect(parsed.items.data == [
+            DataField(name: "text", value: .textFile(URL(fileURLWithPath: "/tmp/body.txt"))),
+            DataField(name: "json", value: .jsonFile(URL(fileURLWithPath: "/tmp/data.json"))),
+            DataField(name: "stdin", value: .textStdin),
+            DataField(name: "json-stdin", value: .jsonStdin)
+        ])
+    }
+
     @Test("Parses custom HTTP methods when explicitly provided")
     func parsesCustomHTTPMethods() throws {
         let parsed = try RequestParser.parse(arguments: [

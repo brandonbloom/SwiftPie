@@ -39,6 +39,12 @@ Add headers or JSON payloads using familiar HTTPie shorthands:
 swift run spie POST https://httpbin.org/post Authorization:"Bearer token" flag:=true message="hello"
 ```
 
+### Body Modes & File Inputs
+
+- Plain `key=value` pairs are serialized into a JSON object by default. Switch to URL-encoded forms with `--form` or send an opaque payload with `--raw` (accepting inline strings, `@/path/to/body`, or `@-` for stdin).
+- Embed file contents in structured payloads with `field=@/path/to/text.txt` or `field:=@/path/to/data.json`; headers can read from files via `Header:@secrets/token.txt`.
+- Stdin shorthands work across headers, data fields, and raw bodies using `@-`, enabling pipelines such as `cat payload.json | swift run spie --raw=@- POST https://api.example.com`.
+
 ## Peer Mode (In-Process Responders)
 
 Peer mode lets the CLI forward requests directly to Swift responders without a network hop. The core pieces are:

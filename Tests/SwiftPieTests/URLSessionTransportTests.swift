@@ -31,8 +31,8 @@ struct URLSessionTransportTests {
         }
     }
 
-    @Test("Encodes form data when only text fields are provided")
-    func encodesFormData() throws {
+    @Test("Encodes JSON by default when only text fields are provided")
+    func encodesJSONByDefault() throws {
         try withTestServer { server in
             let transport = URLSessionTransport()
             let parsed = try RequestParser.parse(arguments: [
@@ -50,13 +50,64 @@ struct URLSessionTransportTests {
                 return
             }
 
-            #expect(text.contains("\"form\""))
+            #expect(text.contains("\"json\""))
+
+            let recorded = try #require(server.lastRequest(path: "/post"))
+            let contentTypes = recorded.headerValues(for: "Content-Type")
+            #expect(contentTypes.last == "application/json")
+            let bodyString = String(data: recorded.body, encoding: .utf8)
+            #expect(bodyString?.contains("\"foo\":\"bar\"") == true)
+            #expect(bodyString?.contains("\"baz\":\"qux\"") == true)
+        }
+    }
+
+    @Test("Encodes form data when --form is requested")
+    func encodesFormDataWithFormMode() throws {
+        try withTestServer { server in
+            let transport = URLSessionTransport()
+            let parsed = try RequestParser.parse(arguments: [
+                "POST",
+                server.baseURL.appendingPathComponent("post").absoluteString,
+                "foo=bar",
+                "baz=qux"
+            ])
+
+            let payload = try RequestBuilder.build(from: parsed, bodyMode: .form)
+            _ = try transport.send(payload, options: TransportOptions())
 
             let recorded = try #require(server.lastRequest(path: "/post"))
             let contentTypes = recorded.headerValues(for: "Content-Type")
             #expect(contentTypes.last?.contains("application/x-www-form-urlencoded") == true)
             let bodyString = String(data: recorded.body, encoding: .utf8)
             #expect(bodyString == "foo=bar&baz=qux")
+        }
+    }
+
+    @Test("Encodes raw bodies without additional processing")
+    func encodesRawBodies() throws {
+        try withTestServer { server in
+            let transport = URLSessionTransport()
+            let parsed = try RequestParser.parse(arguments: [
+                "POST",
+                server.baseURL.appendingPathComponent("post").absoluteString
+            ])
+
+            let payload = try RequestBuilder.build(
+                from: parsed,
+                bodyMode: .raw,
+                rawBody: .inline("raw-body")
+            )
+
+            _ = try transport.send(payload, options: TransportOptions())
+
+            let recorded = try #require(server.lastRequest(path: "/post"))
+            let contentTypes = recorded.headerValues(for: "Content-Type")
+            if let contentType = contentTypes.last {
+                #expect(contentType.contains("application/json") == false)
+                #expect(contentType.contains("multipart/form-data") == false)
+            }
+            let bodyString = String(data: recorded.body, encoding: .utf8)
+            #expect(bodyString == "raw-body")
         }
     }
 

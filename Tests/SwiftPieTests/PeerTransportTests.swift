@@ -49,7 +49,7 @@ struct PeerTransportTests {
         #expect(request.request.path == "/post")
 
         if let contentType = HTTPField.Name("Content-Type") {
-            #expect(request.request.headerFields[contentType] == "application/x-www-form-urlencoded; charset=utf-8")
+            #expect(request.request.headerFields[contentType] == "application/json")
         }
 
         guard case .data(let bodyData) = request.body else {
@@ -58,7 +58,7 @@ struct PeerTransportTests {
         }
 
         let bodyString = String(data: bodyData, encoding: .utf8)
-        #expect(bodyString == "foo=bar")
+        #expect(bodyString?.contains("\"foo\":\"bar\"") == true)
     }
 
     @Test("Keeps explicit headers and respects header removals")

@@ -83,13 +83,11 @@ Phase Roadmap
 - Delivered: Parser now accepts arbitrary method tokens (with heuristics that keep GET/POST inference intact), localhost shorthands remain intact under a configurable default scheme, and the CLI exposes a `--ssl` switch that toggles the implicit scheme to `https://`. Help text nudges users toward either explicit protocols or the new switch, matching the agreed scope without reviving the `https` alias. Details live in `context/phase-011.md`.
 - Follow-ups: Monitor bare-host heuristics and fold transport-capability warnings into the upcoming Phase 017 so peer mode can communicate unsupported options.
 
-### Phase 012 — Request Body Defaults & CLI Flags (Next P0)
-- Objective: Match httpie-go’s request-construction defaults, including `--json`, `--form`, `--raw`, file/header expansion, and stdin piping so content-type and body inference align with user expectations.
-- Scope to confirm: Default plain `key=value` items to JSON bodies, add `--json`/`--form`/`--raw`, support `:=@file`, `=@file`, header/file `@` expansion, and `@-` stdin consumption with validation errors mirroring HTTPie. Refresh help/docs to describe the new behaviours and note the `--ssl` default-scheme toggle when relevant.
-- Test plan: Parser/build unit specs for each shorthand/flag combination, CLI integration tests covering stdin piping, file embeds, conflicting flag errors, and regression tests ensuring multipart/form transitions stay deterministic.
-- Exit artifact: Document behaviour and coverage in `context/phase-012.md`.
+### Phase 012 — Request Body Defaults & CLI Flags ✅
+- Delivered: JSON is now the default encoding for `key=value` items, with `--form` and `--raw` flipping to URL-encoded and pass-through bodies. Parser/builder support `=@file`, `:=@file`, header `:@file`, and `@-` stdin shorthands; transports respect the selected mode, and the CLI auto-emits HTTPie’s JSON `Accept` header unless callers override it. Help/docs updated per scope, and coverage recorded in `context/phase-012.md`.
+- Follow-ups: Monitor stdin-heavy workflows for performance (streaming might be preferable in future) and revisit multipart defaulting when we add richer file metadata.
 
-### Phase 013 — Redirects & Status Controls (Remaining P0)
+### Phase 013 — Redirects & Status Controls (Next P0)
 - Objective: Implement `--follow`, `--check-status`, and related exit-code handling to reach httpie-go’s execution parity.
 - Proposed scope to confirm with user: Add redirect following with loop protection and `--max-redirects`, wire `--check-status` exit mapping (including 3xx handling without follow), update response formatting for redirect chains, and expose stderr diagnostics for status failures.
 - Candidate test plan: Integration tests using the in-process server to exercise redirect loops, 3xx/4xx/5xx cases with/without follow, and transport error boundaries; CLI assertions for exit codes and stderr messages.

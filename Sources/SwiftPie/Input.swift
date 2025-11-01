@@ -9,6 +9,7 @@ import Foundation
 public protocol InputSource {
     var isInteractive: Bool { get }
     func readSecureLine(prompt: String) -> String?
+    func readAllData() throws -> Data
 }
 
 public final class StandardInput: InputSource {
@@ -43,5 +44,13 @@ public final class StandardInput: InputSource {
         }
 
         return readLine()
+    }
+
+    public func readAllData() throws -> Data {
+        let handle = FileHandle.standardInput
+        guard let data = try handle.readToEnd() else {
+            return Data()
+        }
+        return data
     }
 }

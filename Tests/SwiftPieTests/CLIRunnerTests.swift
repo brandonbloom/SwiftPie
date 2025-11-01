@@ -420,6 +420,247 @@ struct CLIRunnerTests {
         #expect(captured.request.path == "/status/201")
     }
 
+    @Test("Forces form encoding when --form flag is supplied")
+    func formFlagForcesFormEncoding() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
+        transport.queue(result: .success(response))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--form", "https://example.com/post", "foo=bar"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+
+        let payload = try #require(transport.payloads.first)
+        #expect(payload.bodyMode == .form)
+        #expect(payload.rawBody == nil)
+    }
+
+    @Test("Rejects JSON fields when --form is used")
+    func rejectsJSONFieldsInFormMode() {
+        let console = ConsoleRecorder()
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--form", "https://example.com/post", "flag:=true"],
+            context: CLIContext(console: console, input: NonInteractiveInput())
+        )
+
+        #expect(exitCode == Int(EX_USAGE))
+        #expect(console.error.contains("field 'flag' uses JSON data"))
+    }
+
+    @Test("Sets Accept header for --json flag")
+    func setsAcceptHeaderForJSONFlag() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
+        transport.queue(result: .success(response))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--json", "https://example.com/get"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+
+        let payload = try #require(transport.payloads.first)
+        let accept = try #require(HTTPField.Name("Accept"))
+        #expect(payload.request.headerFields[accept] == "application/json, */*;q=0.5")
+    }
+
+    @Test("Keeps explicit Accept header when --json is provided")
+    func preservesExplicitAcceptHeaderWithJSONFlag() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
+        transport.queue(result: .success(response))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--json", "https://example.com/get", "Accept:text/plain"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+
+        let payload = try #require(transport.payloads.first)
+        let accept = try #require(HTTPField.Name("Accept"))
+        #expect(payload.request.headerFields[accept] == "text/plain")
+    }
+
+    @Test("Captures raw body when --raw is provided")
+    func rawFlagUsesRawBody() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
+        transport.queue(result: .success(response))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--raw", "payload body", "POST", "https://example.com/post"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+
+        let payload = try #require(transport.payloads.first)
+        #expect(payload.bodyMode == .raw)
+        #expect(payload.rawBody == .inline("payload body"))
+        #expect(payload.data.isEmpty)
+    }
+
+    @Test("Loads raw body from files")
+    func rawFlagReadsFiles() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
+        transport.queue(result: .success(response))
+
+        let directory = FileManager.default.temporaryDirectory
+        let fileURL = directory.appendingPathComponent(UUID().uuidString)
+        try "file-body".write(to: fileURL, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--raw=@\(fileURL.path)", "POST", "https://example.com/post"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+
+        let payload = try #require(transport.payloads.first)
+        let expected = try #require("file-body".data(using: .utf8))
+        #expect(payload.bodyMode == .raw)
+        #expect(payload.rawBody == .data(expected))
+    }
+
+    @Test("Rejects mixing request items with raw bodies")
+    func rejectsRawWithRequestItems() {
+        let console = ConsoleRecorder()
+        let exitCode = SwiftPie.run(
+            arguments: [
+                "spie",
+                "--raw",
+                "raw body",
+                "https://example.com/post",
+                "foo=bar"
+            ],
+            context: CLIContext(console: console, input: NonInteractiveInput())
+        )
+
+        #expect(exitCode == Int(EX_USAGE))
+        #expect(console.error.contains("cannot mix --raw with request items"))
+    }
+
+    @Test("Rejects stdin usage when --ignore-stdin is set")
+    func rejectsStdinWhenIgnored() {
+        let console = ConsoleRecorder()
+        let exitCode = SwiftPie.run(
+            arguments: [
+                "spie",
+                "--ignore-stdin",
+                "https://example.com/post",
+                "foo=@-"
+            ],
+            context: CLIContext(console: console, input: NonInteractiveInput())
+        )
+
+        #expect(exitCode == Int(EX_USAGE))
+        #expect(console.error.contains("stdin is disabled by --ignore-stdin"))
+    }
+
+    @Test("Expands stdin data into request fields")
+    func expandsStdinData() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
+        transport.queue(result: .success(response))
+
+        let input = BufferedInput(data: Data("stdin-body".utf8))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "https://example.com/post", "body=@-"],
+            context: CLIContext(
+                console: console,
+                input: input,
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+
+        let payload = try #require(transport.payloads.first)
+        let field = try #require(payload.data.first)
+        #expect(field.name == "body")
+        #expect(field.value == .text("stdin-body"))
+    }
+
+    @Test("Reads raw body from stdin")
+    func rawBodyFromStdin() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
+        transport.queue(result: .success(response))
+
+        let input = BufferedInput(data: Data("raw-stdin".utf8))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--raw=@-", "POST", "https://example.com/post"],
+            context: CLIContext(
+                console: console,
+                input: input,
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+
+        let payload = try #require(transport.payloads.first)
+        #expect(payload.bodyMode == .raw)
+        #expect(payload.rawBody == .data(Data("raw-stdin".utf8)))
+    }
+
     @Test("Rejects auth type usage without credentials")
     func rejectsAuthTypeWithoutCredentials() {
         let console = ConsoleRecorder()
@@ -504,6 +745,23 @@ private struct NonInteractiveInput: InputSource {
     func readSecureLine(prompt: String) -> String? {
         nil
     }
+
+    func readAllData() throws -> Data {
+        Data()
+    }
+}
+
+private struct BufferedInput: InputSource {
+    var isInteractive: Bool { false }
+    var data: Data
+
+    func readSecureLine(prompt: String) -> String? {
+        nil
+    }
+
+    func readAllData() throws -> Data {
+        data
+    }
 }
 
 private final class InteractiveInput: InputSource {
@@ -523,5 +781,10 @@ private final class InteractiveInput: InputSource {
         }
 
         return lines.removeFirst()
+    }
+
+    func readAllData() throws -> Data {
+        let combined = lines.joined()
+        return Data(combined.utf8)
     }
 }

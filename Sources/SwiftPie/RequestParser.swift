@@ -101,50 +101,52 @@ private enum ParsedItem {
 }
 
 private func parseItem(_ token: String) throws -> ParsedItem {
-    if let file = try parseFileItem(token) {
-        return .file(file)
-    }
+    do {
+        let split = try splitKeyValue(token)
 
-    let split = try splitKeyValue(token)
-
-    switch split.separator {
-    case .header(let produceEmpty):
-        let value: HeaderValue = {
-            if produceEmpty {
-                return .some("")
+        switch split.separator {
+        case .header(let producesEmpty):
+            let headerValue: HeaderValue
+            if producesEmpty {
+                headerValue = .some("")
+            } else if let rawValue = split.value, !rawValue.isEmpty {
+                headerValue = try parseHeaderValue(rawValue, originalToken: token)
+            } else {
+                headerValue = .none
             }
-            if let rawValue = split.value, !rawValue.isEmpty {
-                return .some(unescape(rawValue))
-            }
-            return .none
-        }()
-        return .header(
-            HeaderField(
-                name: unescape(split.key),
-                value: value
+            return .header(
+                HeaderField(
+                    name: unescape(split.key),
+                    value: headerValue
+                )
             )
-        )
-    case .dataString:
-        return .data(
-            DataField(
-                name: unescape(split.key),
-                value: .text(unescape(split.value ?? ""))
+        case .dataString:
+            let rawValue = split.value ?? ""
+            return .data(
+                DataField(
+                    name: unescape(split.key),
+                    value: try parseDataValue(rawValue, kind: .text, originalToken: token)
+                )
             )
-        )
-    case .dataJSON:
-        let raw = split.value ?? ""
-        let jsonValue = try parseJSONValue(raw)
-        return .data(
-            DataField(
-                name: unescape(split.key),
-                value: .json(jsonValue)
+        case .dataJSON:
+            let rawValue = split.value ?? ""
+            return .data(
+                DataField(
+                    name: unescape(split.key),
+                    value: try parseDataValue(rawValue, kind: .json, originalToken: token)
+                )
             )
-        )
-    case .query:
-        return .query(
-            name: unescape(split.key),
-            value: unescape(split.value ?? "")
-        )
+        case .query:
+            return .query(
+                name: unescape(split.key),
+                value: unescape(split.value ?? "")
+            )
+        }
+    } catch let error as RequestParserError {
+        if case .invalidItem = error, let file = try parseFileItem(token) {
+            return .file(file)
+        }
+        throw error
     }
 }
 
@@ -413,6 +415,66 @@ private func normalizeURLToken(
     return "\(options.defaultScheme.scheme)://\(token)"
 }
 
+private enum DataValueKind {
+    case text
+    case json
+}
+
+private func parseDataValue(
+    _ rawValue: String,
+    kind: DataValueKind,
+    originalToken: String
+) throws -> DataValue {
+    if valueStartsWithUnescapedAt(rawValue) {
+        let remainder = String(rawValue.dropFirst())
+        if remainder == "-" {
+            return kind == .text ? .textStdin : .jsonStdin
+        }
+        let unescapedPath = unescape(remainder)
+        guard !unescapedPath.isEmpty else {
+            throw RequestParserError.invalidFile(originalToken)
+        }
+        let url = URL(fileURLWithPath: unescapedPath)
+        return kind == .text ? .textFile(url) : .jsonFile(url)
+    }
+
+    switch kind {
+    case .text:
+        return .text(unescape(rawValue))
+    case .json:
+        let jsonValue = try parseJSONValue(rawValue)
+        return .json(jsonValue)
+    }
+}
+
+private func parseHeaderValue(
+    _ rawValue: String,
+    originalToken: String
+) throws -> HeaderValue {
+    if valueStartsWithUnescapedAt(rawValue) {
+        let remainder = String(rawValue.dropFirst())
+        if remainder == "-" {
+            return .stdin
+        }
+        let unescapedPath = unescape(remainder)
+        guard !unescapedPath.isEmpty else {
+            throw RequestParserError.invalidFile(originalToken)
+        }
+        return .file(URL(fileURLWithPath: unescapedPath))
+    }
+
+    return .some(unescape(rawValue))
+}
+
+private func valueStartsWithUnescapedAt(_ value: String) -> Bool {
+    guard !value.isEmpty else {
+        return false
+    }
+
+    let index = value.startIndex
+    return value[index] == "@" && !isEscapedCharacter(at: index, in: value)
+}
+
 private func expandLocalhostShorthand(
     _ token: String,
     options: RequestParserOptions
@@ -570,6 +632,8 @@ public struct HeaderField: Equatable {
 public enum HeaderValue: Equatable {
     case some(String)
     case none
+    case file(URL)
+    case stdin
 }
 
 public struct DataField: Equatable {
@@ -585,6 +649,10 @@ public struct DataField: Equatable {
 public enum DataValue: Equatable {
     case text(String)
     case json(JSONValue)
+    case textFile(URL)
+    case jsonFile(URL)
+    case textStdin
+    case jsonStdin
 }
 
 public enum JSONValue: Equatable {
@@ -619,6 +687,20 @@ public enum JSONValue: Equatable {
         default:
             throw RequestParserError.invalidJSON(String(describing: value))
         }
+    }
+}
+
+extension JSONValue {
+    static func parse(from string: String) throws -> JSONValue {
+        guard let data = string.data(using: .utf8) else {
+            throw RequestParserError.invalidJSON(string)
+        }
+        return try parse(from: data)
+    }
+
+    static func parse(from data: Data) throws -> JSONValue {
+        let json = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+        return try JSONValue(any: json)
     }
 }
 

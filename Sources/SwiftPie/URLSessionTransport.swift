@@ -74,6 +74,12 @@ public final class URLSessionTransport: RequestTransport {
             }
         }
 
+        if payload.bodyMode == .raw,
+           let fieldName = HTTPField.Name("Content-Type"),
+           RequestPayloadEncoding.shouldApplyDefaultHeader(named: fieldName, for: payload) {
+            request.setValue(nil, forHTTPHeaderField: fieldName.rawName)
+        }
+
         if options.httpVersionPreference == .http1Only,
            let fieldName = HTTPField.Name("Connection"),
            RequestPayloadEncoding.shouldApplyDefaultHeader(named: fieldName, for: payload) {

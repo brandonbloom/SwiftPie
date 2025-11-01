@@ -8,24 +8,42 @@ struct EncodedBody {
 
 enum RequestPayloadEncoding {
     static func encodeBody(from payload: RequestPayload) throws -> EncodedBody? {
-        if payload.data.isEmpty, payload.files.isEmpty {
-            return nil
-        }
-
-        if !payload.files.isEmpty {
-            return try encodeMultipartBody(from: payload)
-        }
-
-        if payload.data.contains(where: { field in
-            if case .json = field.value {
-                return true
+        switch payload.bodyMode {
+        case .raw:
+            guard let rawBody = payload.rawBody else {
+                return nil
             }
-            return false
-        }) {
-            return try encodeJSONBody(from: payload.data)
-        }
 
-        return encodeFormBody(from: payload.data)
+            let data: Data
+            switch rawBody {
+            case .inline(let string):
+                data = string.data(using: .utf8) ?? Data(string.utf8)
+            case .data(let rawData):
+                data = rawData
+            }
+
+            return EncodedBody(data: data, contentType: nil)
+        case .json:
+            if payload.data.isEmpty, payload.files.isEmpty {
+                return nil
+            }
+
+            if !payload.files.isEmpty {
+                return try encodeMultipartBody(from: payload)
+            }
+
+            return try encodeJSONBody(from: payload.data)
+        case .form:
+            if payload.data.isEmpty, payload.files.isEmpty {
+                return nil
+            }
+
+            if !payload.files.isEmpty {
+                return try encodeMultipartBody(from: payload)
+            }
+
+            return try encodeFormBody(from: payload.data)
+        }
     }
 
     static func shouldApplyDefaultHeader(
@@ -61,8 +79,26 @@ enum RequestPayloadEncoding {
             switch dataField.value {
             case .text(let text):
                 valueString = text
+            case .textFile(let url):
+                do {
+                    valueString = try String(contentsOf: url, encoding: .utf8)
+                } catch {
+                    throw TransportError.internalFailure("failed to read data file '\(url.path)': \(error.localizedDescription)")
+                }
             case .json(let json):
                 valueString = try json.asJSONString()
+            case .jsonFile(let url):
+                do {
+                    let contents = try Data(contentsOf: url)
+                    let json = try JSONValue.parse(from: contents)
+                    valueString = try json.asJSONString()
+                } catch let error as TransportError {
+                    throw error
+                } catch {
+                    throw TransportError.internalFailure("failed to read JSON data file '\(url.path)': \(error.localizedDescription)")
+                }
+            case .textStdin, .jsonStdin:
+                throw TransportError.internalFailure("stdin data should be resolved before encoding")
             }
 
             append("\(valueString)\r\n")
@@ -101,8 +137,26 @@ enum RequestPayloadEncoding {
             switch field.value {
             case .text(let string):
                 value = string
+            case .textFile(let url):
+                do {
+                    value = try String(contentsOf: url, encoding: .utf8)
+                } catch {
+                    throw TransportError.internalFailure("failed to read data file '\(url.path)': \(error.localizedDescription)")
+                }
             case .json(let json):
                 value = try json.toJSONObject()
+            case .jsonFile(let url):
+                do {
+                    let contents = try Data(contentsOf: url)
+                    let json = try JSONValue.parse(from: contents)
+                    value = try json.toJSONObject()
+                } catch let error as TransportError {
+                    throw error
+                } catch {
+                    throw TransportError.internalFailure("failed to read JSON data file '\(url.path)': \(error.localizedDescription)")
+                }
+            case .textStdin, .jsonStdin:
+                throw TransportError.internalFailure("stdin data should be resolved before encoding")
             }
 
             if let existing = object[field.name] {
@@ -121,16 +175,38 @@ enum RequestPayloadEncoding {
         return EncodedBody(data: data, contentType: "application/json")
     }
 
-    private static func encodeFormBody(from fields: [DataField]) -> EncodedBody {
-        let components = fields.map { field -> String in
+    private static func encodeFormBody(from fields: [DataField]) throws -> EncodedBody {
+        let components = try fields.map { field -> String in
             let encodedName = field.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? field.name
             let encodedValue: String
             switch field.value {
             case .text(let string):
                 encodedValue = string.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? string
+            case .textFile(let url):
+                let string: String
+                do {
+                    string = try String(contentsOf: url, encoding: .utf8)
+                } catch {
+                    throw TransportError.internalFailure("failed to read data file '\(url.path)': \(error.localizedDescription)")
+                }
+                encodedValue = string.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? string
             case .json(let json):
                 let jsonString = (try? json.asJSONString()) ?? ""
                 encodedValue = jsonString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? jsonString
+            case .jsonFile(let url):
+                let jsonString: String
+                do {
+                    let contents = try Data(contentsOf: url)
+                    let json = try JSONValue.parse(from: contents)
+                    jsonString = try json.asJSONString()
+                } catch let error as TransportError {
+                    throw error
+                } catch {
+                    throw TransportError.internalFailure("failed to read JSON data file '\(url.path)': \(error.localizedDescription)")
+                }
+                encodedValue = jsonString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? jsonString
+            case .textStdin, .jsonStdin:
+                throw TransportError.internalFailure("stdin data should be resolved before encoding")
             }
             return "\(encodedName)=\(encodedValue)"
         }
