@@ -21,6 +21,7 @@
 - [./phase-010.md](./phase-010.md) -- Phase 010 notes on adopting Rainbow for colorized CLI help output.
 - [./phase-011.md](./phase-011.md) -- Phase 011 notes on method parsing parity and default HTTPS support.
 - [./phase-012.md](./phase-012.md) -- Phase 012 notes on request body defaults, CLI flags, and I/O expansion.
+- [./phase-013.md](./phase-013.md) -- Phase 013 notes on redirect handling, status exit codes, and CLI diagnostics.
 
 ## Submodules
 

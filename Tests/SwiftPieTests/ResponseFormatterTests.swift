@@ -15,7 +15,7 @@ struct ResponseFormatterTests {
             body: .text("{\"message\":\"hello\"}")
         )
 
-        let formatted = ResponseFormatter().format(response)
+        let formatted = ResponseFormatter().format([response])
 
         #expect(formatted.contains("HTTP/1.1 200 OK"))
         #expect(formatted.contains("Content-Type: application/json"))
@@ -30,10 +30,29 @@ struct ResponseFormatterTests {
             body: .none
         )
 
-        let formatted = ResponseFormatter().format(response)
+        let formatted = ResponseFormatter().format([response])
 
         #expect(formatted.contains("HTTP/1.1 204 No Content"))
         #expect(!formatted.contains("\n\n\n"))
         #expect(!formatted.contains("HTTP/1.1 204 No Content\n\n\n"))
+    }
+
+    @Test("Formats redirect chains sequentially")
+    func formatsRedirectChains() {
+        let redirect = ResponsePayload(
+            response: HTTPResponse(status: HTTPResponse.Status(code: 302)),
+            body: .none
+        )
+
+        let final = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("done")
+        )
+
+        let formatted = ResponseFormatter().format([redirect, final])
+
+        #expect(formatted.contains("HTTP/1.1 302 Found"))
+        #expect(formatted.contains("HTTP/1.1 200 OK"))
+        #expect(formatted.contains("done"))
     }
 }

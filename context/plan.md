@@ -87,11 +87,9 @@ Phase Roadmap
 - Delivered: JSON is now the default encoding for `key=value` items, with `--form` and `--raw` flipping to URL-encoded and pass-through bodies. Parser/builder support `=@file`, `:=@file`, header `:@file`, and `@-` stdin shorthands; transports respect the selected mode, and the CLI auto-emits HTTPie’s JSON `Accept` header unless callers override it. Help/docs updated per scope, and coverage recorded in `context/phase-012.md`.
 - Follow-ups: Monitor stdin-heavy workflows for performance (streaming might be preferable in future) and revisit multipart defaulting when we add richer file metadata.
 
-### Phase 013 — Redirects & Status Controls (Next P0)
-- Objective: Implement `--follow`, `--check-status`, and related exit-code handling to reach httpie-go’s execution parity.
-- Proposed scope to confirm with user: Add redirect following with loop protection and `--max-redirects`, wire `--check-status` exit mapping (including 3xx handling without follow), update response formatting for redirect chains, and expose stderr diagnostics for status failures.
-- Candidate test plan: Integration tests using the in-process server to exercise redirect loops, 3xx/4xx/5xx cases with/without follow, and transport error boundaries; CLI assertions for exit codes and stderr messages.
-- Exit artifact: Record redirects/status behaviour in `context/phase-013.md`.
+### Phase 013 — Redirects & Status Controls ✅
+- Delivered: CLI exposes `--follow`/`-F`, `--max-redirects`, and `--check-status`; redirect chains now render hop-by-hop, loop limits raise exit code 6 with stderr diagnostics, and HTTP 3xx/4xx/5xx map to HTTPie exit codes when requested. URLSession transport no longer auto-follows so history stays deterministic. Notes captured in `context/phase-013.md`.
+- Follow-ups: Future phases should add redirect history printing controls (`--all`, `--history-print`) and streaming-friendly output once broader output tooling lands (see Phases 014/016).
 
 ### Phase 014 — Documentation & Release Readiness
 - Objective: Prepare the project for an open-source initial release with polished onboarding and automation.

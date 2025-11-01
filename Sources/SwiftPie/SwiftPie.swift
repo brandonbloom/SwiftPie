@@ -90,13 +90,16 @@ private struct ParsedCLIOptions {
     var authProvided: Bool
     var authType: AuthType
     var authTypeWasExplicit: Bool
-   var verify: TransportOptions.TLSVerification
-   var timeout: TimeInterval?
-   var httpVersionPreference: TransportOptions.HTTPVersionPreference
-   var defaultScheme: RequestParserOptions.DefaultScheme
-   var bodyMode: RequestPayload.BodyMode
-   var rawBody: RawBodyInput?
+    var verify: TransportOptions.TLSVerification
+    var timeout: TimeInterval?
+    var httpVersionPreference: TransportOptions.HTTPVersionPreference
+    var defaultScheme: RequestParserOptions.DefaultScheme
+    var bodyMode: RequestPayload.BodyMode
+    var rawBody: RawBodyInput?
     var forceJSONAccept: Bool
+    var followRedirects: Bool
+    var maxRedirects: Int?
+    var checkStatus: Bool
 }
 
 private enum AuthType {
@@ -135,6 +138,9 @@ private struct OptionParser {
         var rawBody: RawBodyInput?
         var bodyOptionName: String?
         var forceJSONAccept = false
+        var followRedirects = false
+        var maxRedirects: Int?
+        var checkStatus = false
 
         func setBodyMode(_ mode: RequestPayload.BodyMode, optionName: String) throws {
             if let existing = bodyOptionName, existing != optionName {
@@ -196,6 +202,14 @@ private struct OptionParser {
                         continue
                     case "-f", "--form":
                         try setBodyMode(.form, optionName: "--form")
+                        index += 1
+                        continue
+                    case "-F", "--follow":
+                        followRedirects = true
+                        index += 1
+                        continue
+                    case "--check-status":
+                        checkStatus = true
                         index += 1
                         continue
                     case "--http1":
@@ -271,6 +285,19 @@ private struct OptionParser {
                             rawBody = try parseRawBody(value)
                             index = nextIndex
                             continue
+                        case "--max-redirects":
+                            let (value, nextIndex) = try consumeValue(
+                                inline: inlineValue,
+                                currentIndex: index,
+                                option: "--max-redirects"
+                            )
+                            guard let parsed = Int(value), parsed > 0 else {
+                                throw CLIOptionError.invalidMaxRedirects(value)
+                            }
+                            maxRedirects = parsed
+                            followRedirects = true
+                            index = nextIndex
+                            continue
                         default:
                             throw CLIOptionError.unknownOption(argument)
                         }
@@ -315,7 +342,10 @@ private struct OptionParser {
             defaultScheme: defaultScheme,
             bodyMode: bodyMode,
             rawBody: rawBody,
-            forceJSONAccept: forceJSONAccept
+            forceJSONAccept: forceJSONAccept,
+            followRedirects: followRedirects,
+            maxRedirects: maxRedirects,
+            checkStatus: checkStatus
         )
     }
 
@@ -391,6 +421,7 @@ private enum CLIOptionError: Error {
     case unknownOption(String)
     case missingValue(String)
     case invalidTimeout(String)
+    case invalidMaxRedirects(String)
     case invalidVerifyValue(String)
     case invalidAuthType(String)
     case authTypeRequiresAuth
@@ -410,6 +441,8 @@ private extension CLIOptionError {
             return "missing value for option '\(option)'"
         case .invalidTimeout(let value):
             return "invalid timeout value '\(value)'"
+        case .invalidMaxRedirects(let value):
+            return "invalid max redirects value '\(value)'"
         case .invalidVerifyValue(let value):
             return "invalid verify value '\(value)'"
         case .invalidAuthType(let type):
@@ -476,10 +509,16 @@ private let usageExitCode: Int = {
     #endif
 }()
 
+private let defaultMaxRedirects = 30
+
 private enum ExitCode {
     case success
     case usage
     case failure
+    case httpError3xx
+    case httpError4xx
+    case httpError5xx
+    case tooManyRedirects
 
     var rawValue: Int {
         switch self {
@@ -489,6 +528,14 @@ private enum ExitCode {
             return usageExitCode
         case .failure:
             return 1
+        case .httpError3xx:
+            return 3
+        case .httpError4xx:
+            return 4
+        case .httpError5xx:
+            return 5
+        case .tooManyRedirects:
+            return 6
         }
     }
 }
@@ -564,11 +611,38 @@ private struct CLIRunner<Transport: RequestTransport> {
                 verify: options.verify,
                 httpVersionPreference: options.httpVersionPreference
             )
+            let followRedirects = options.followRedirects || options.maxRedirects != nil
+            let maxRedirects = options.maxRedirects ?? defaultMaxRedirects
 
-            let response = try context.transport.send(payload, options: transportOptions)
-            let formatted = ResponseFormatter().format(response)
+            let chain = try performRequestChain(
+                initialPayload: payload,
+                options: transportOptions,
+                followRedirects: followRedirects,
+                maxRedirects: maxRedirects
+            )
+
+            let formatted = ResponseFormatter().format(chain.responses)
             context.console.out(formatted)
-            return exitCode(for: response.response.status)
+            if let error = chain.error {
+                context.console.error("error: \(error.cliDescription)\n")
+                return error.exitCode.rawValue
+            }
+
+            guard let finalResponse = chain.responses.last else {
+                return ExitCode.success.rawValue
+            }
+
+            let exit = exitCode(
+                for: finalResponse.response.status,
+                checkStatus: options.checkStatus,
+                followRedirects: followRedirects
+            )
+
+            if let message = statusFailureMessage(for: exit, status: finalResponse.response.status) {
+                context.console.error("http error: \(message)\n")
+            }
+
+            return exit.rawValue
         } catch let error as CLIOptionError {
             context.console.error("error: \(error.cliDescription)\n")
             return ExitCode.usage.rawValue
@@ -708,6 +782,211 @@ private struct CLIRunner<Transport: RequestTransport> {
         }
     }
 
+    private struct RequestChainResult {
+        var responses: [ResponsePayload]
+        var followedRedirects: Bool
+        var error: RequestChainError?
+    }
+
+    private enum RequestChainError: Error {
+        case tooManyRedirects(limit: Int)
+
+        var exitCode: ExitCode {
+            switch self {
+            case .tooManyRedirects:
+                return .tooManyRedirects
+            }
+        }
+
+        var cliDescription: String {
+            switch self {
+            case .tooManyRedirects(let limit):
+                return "too many redirects (max \(limit))"
+            }
+        }
+    }
+
+    private func performRequestChain(
+        initialPayload: RequestPayload,
+        options: TransportOptions,
+        followRedirects: Bool,
+        maxRedirects: Int
+    ) throws -> RequestChainResult {
+        var responses: [ResponsePayload] = []
+        var payload = initialPayload
+        var remainingRedirects = maxRedirects
+        var followed = false
+
+        while true {
+            let response = try context.transport.send(payload, options: options)
+            responses.append(response)
+
+            guard followRedirects else {
+                break
+            }
+
+            guard let targetURL = redirectTargetURL(for: response, currentRequest: payload.request) else {
+                break
+            }
+
+            if remainingRedirects == 0 {
+                return RequestChainResult(
+                    responses: responses,
+                    followedRedirects: followed,
+                    error: .tooManyRedirects(limit: maxRedirects)
+                )
+            }
+
+            guard let nextPayload = try? makeRedirectPayload(
+                from: payload,
+                to: targetURL,
+                statusCode: response.response.status.code
+            ) else {
+                break
+            }
+
+            payload = nextPayload
+            followed = true
+            remainingRedirects -= 1
+        }
+
+        return RequestChainResult(
+            responses: responses,
+            followedRedirects: followed,
+            error: nil
+        )
+    }
+
+    private func redirectTargetURL(
+        for response: ResponsePayload,
+        currentRequest: HTTPRequest
+    ) -> URL? {
+        let statusCode = response.response.status.code
+        guard (300...399).contains(statusCode) else {
+            return nil
+        }
+
+        guard let locationName = HTTPField.Name("Location") else {
+            return nil
+        }
+
+        guard let locationValue = response.response.headerFields[values: locationName].first,
+              !locationValue.isEmpty else {
+            return nil
+        }
+
+        guard let currentURL = requestURL(for: currentRequest) else {
+            return nil
+        }
+
+        return URL(string: locationValue, relativeTo: currentURL)?.absoluteURL
+    }
+
+    private func requestURL(for request: HTTPRequest) -> URL? {
+        guard let scheme = request.scheme,
+              let authority = request.authority else {
+            return nil
+        }
+
+        let path = request.path ?? "/"
+        return URL(string: "\(scheme)://\(authority)\(path)")
+    }
+
+    private func makeRedirectPayload(
+        from payload: RequestPayload,
+        to url: URL,
+        statusCode: Int
+    ) throws -> RequestPayload {
+        guard
+            let scheme = url.scheme,
+            let host = url.host
+        else {
+            throw RequestBuilderError.unsupportedURL(url)
+        }
+
+        var request = payload.request
+        request.scheme = scheme
+        request.authority = makeAuthority(for: url, host: host)
+        request.path = makePath(from: url)
+
+        let originalMethod = payload.request.method
+        let shouldConvertToGet = shouldSwitchToGet(statusCode: statusCode, method: originalMethod)
+        if shouldConvertToGet {
+            request.method = .get
+        }
+
+        var updated = payload
+        updated.request = request
+
+        if shouldConvertToGet {
+            updated.data = []
+            updated.files = []
+            updated.rawBody = nil
+            updated.bodyMode = .json
+        }
+
+        return updated
+    }
+
+    private func makeAuthority(for url: URL, host: String) -> String {
+        let formattedHost: String
+        if host.contains(":"), !host.hasPrefix("["), !host.hasSuffix("]") {
+            formattedHost = "[\(host)]"
+        } else {
+            formattedHost = host
+        }
+
+        let credentials: String? = {
+            guard let user = url.user, !user.isEmpty else {
+                return nil
+            }
+
+            if let password = url.password {
+                return "\(user):\(password)"
+            }
+            return user
+        }()
+
+        let hostPortion: String
+        if let port = url.port {
+            hostPortion = "\(formattedHost):\(port)"
+        } else {
+            hostPortion = formattedHost
+        }
+
+        if let credentials {
+            return "\(credentials)@\(hostPortion)"
+        }
+
+        return hostPortion
+    }
+
+    private func makePath(from url: URL) -> String {
+        var path = url.path.isEmpty ? "/" : url.path
+        if let query = url.query, !query.isEmpty {
+            path.append("?")
+            path.append(query)
+        }
+        return path
+    }
+
+    private func shouldSwitchToGet(
+        statusCode: Int,
+        method: HTTPRequest.Method
+    ) -> Bool {
+        if method == .get || method == .head {
+            return false
+        }
+
+        switch statusCode {
+        case 301, 302, 303:
+            return true
+        default:
+            return false
+        }
+    }
+
+
     private var helpText: String {
         var lines: [String] = []
 
@@ -765,6 +1044,12 @@ private struct CLIRunner<Transport: RequestTransport> {
         lines.append(optionLine(flags: "    --verify [BOOL]", description: "Set to false (or no/0) to disable TLS verification; defaults to true."))
         lines.append(optionLine(flags: "    --http1", description: "Force HTTP/1.1 for the request."))
         lines.append(optionLine(flags: "    --ssl", description: "Switch the default scheme to https:// when no scheme is provided."))
+        lines.append("")
+
+        lines.append(heading("Execution"))
+        lines.append(optionLine(flags: "-F, --follow", description: "Follow redirect responses (up to 30 hops by default)."))
+        lines.append(optionLine(flags: "    --max-redirects N", description: "Limit redirect hops when following (implies --follow)."))
+        lines.append(optionLine(flags: "    --check-status", description: "Exit with HTTP-aware error codes on 3xx/4xx/5xx responses."))
         lines.append("")
 
         lines.append(heading("Input & Prompts"))
@@ -827,12 +1112,53 @@ private struct CLIRunner<Transport: RequestTransport> {
         text.bold.green
     }
 
-    private func exitCode(for status: HTTPResponse.Status) -> Int {
-        switch status.code {
-        case 100..<400:
-            return ExitCode.success.rawValue
+    private func statusFailureMessage(
+        for exitCode: ExitCode,
+        status: HTTPResponse.Status
+    ) -> String? {
+        switch exitCode {
+        case .httpError3xx, .httpError4xx, .httpError5xx:
+            let reason = reasonPhrase(for: status)
+            if reason.isEmpty {
+                return "HTTP \(status.code)"
+            }
+            return "HTTP \(status.code) \(reason)"
         default:
-            return ExitCode.failure.rawValue
+            return nil
+        }
+    }
+
+    private func reasonPhrase(for status: HTTPResponse.Status) -> String {
+        if !status.reasonPhrase.isEmpty {
+            return status.reasonPhrase
+        }
+
+        let localized = HTTPURLResponse.localizedString(forStatusCode: status.code)
+        if localized.isEmpty {
+            return ""
+        }
+
+        return localized.capitalized
+    }
+
+    private func exitCode(
+        for status: HTTPResponse.Status,
+        checkStatus: Bool,
+        followRedirects: Bool
+    ) -> ExitCode {
+        guard checkStatus else {
+            return .success
+        }
+
+        switch status.code {
+        case 300..<400:
+            return followRedirects ? .success : .httpError3xx
+        case 400..<500:
+            return .httpError4xx
+        case 500..<600:
+            return .httpError5xx
+        default:
+            return .success
         }
     }
 

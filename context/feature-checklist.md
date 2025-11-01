@@ -43,8 +43,8 @@ Legend:
 - [ ] **P2 Client certificates & TLS tuning (`--cert`, `--cert-key`, `--ssl`)** — HTTPie ✅ | httpie-go ❌ — Supply client certs/keys and tweak TLS versions/ciphers.
 
 ## Transport & Execution Controls
-- [ ] **P0 Follow redirects (`--follow`)** — HTTPie ✅ | httpie-go ✅ — Honor 30x responses with loop protection.
-- [ ] **P0 Exit on HTTP errors (`--check-status`)** — HTTPie ✅ | httpie-go ✅ — Map 3xx–5xx statuses to non-zero exit codes.
+- [x] **P0 Follow redirects (`--follow`)** — HTTPie ✅ | httpie-go ✅ — Honor 30x responses with loop protection. (Phase 013 added `--follow`/`-F` with `--max-redirects` and CLI-rendered redirect history.)
+- [x] **P0 Exit on HTTP errors (`--check-status`)** — HTTPie ✅ | httpie-go ✅ — Map 3xx–5xx statuses to non-zero exit codes. (Phase 013 wired HTTPie exit codes and stderr diagnostics.)
 - [x] **P0 Ignore stdin (`--ignore-stdin`)** — HTTPie ✅ | httpie-go ✅ — Avoid unintended stdin consumption. (Phase 006 ✅)
 - [ ] **P0 Download mode (`--download`, `--output`, `--overwrite`)** — HTTPie ✅ | httpie-go ✅ — Save bodies to files with progress and naming rules. (➡️ Phase 007)
 - [ ] **P1 Offline mode (`--offline`)** — HTTPie ✅ | httpie-go ❌ — Render requests without sending them (doc example parity).

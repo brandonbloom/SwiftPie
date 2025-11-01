@@ -150,8 +150,8 @@ struct CLIRunnerTests {
         #expect(console.error.contains("unknown option '--unknown'"))
     }
 
-    @Test("Returns non-zero exit codes for 4xx/5xx responses")
-    func exitsWithErrorForClientAndServerErrors() {
+    @Test("Defaults to zero exit code for HTTP error responses")
+    func defaultsToZeroExitCodeForHttpErrors() {
         let console = ConsoleRecorder()
         let transport = TransportRecorder()
         let notFound = ResponsePayload(
@@ -169,9 +169,183 @@ struct CLIRunnerTests {
             )
         )
 
-        #expect(exitCode == 1)
+        #expect(exitCode == 0)
         #expect(console.output.contains("HTTP/1.1 404 Not Found"))
         #expect(console.output.contains("missing"))
+        #expect(console.error.isEmpty)
+    }
+
+    @Test("Maps --check-status to HTTP-aware exit codes")
+    func checkStatusMapsToHttpExitCodes() throws {
+        let transport = TransportRecorder()
+
+        var redirectHeaders = HTTPFields()
+        let location = try #require(HTTPField.Name("Location"))
+        redirectHeaders.append(HTTPField(name: location, value: "https://example.com/next"))
+
+        let redirect = ResponsePayload(
+            response: HTTPResponse(status: HTTPResponse.Status(code: 302), headerFields: redirectHeaders),
+            body: .none
+        )
+
+        transport.queue(result: .success(redirect))
+
+        let redirectConsole = ConsoleRecorder()
+        let redirectExit = SwiftPie.run(
+            arguments: ["spie", "--check-status", "https://example.com/start"],
+            context: CLIContext(
+                console: redirectConsole,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(redirectExit == 3)
+        #expect(redirectConsole.error.contains("HTTP 302 Found"))
+
+        let notFound = ResponsePayload(
+            response: HTTPResponse(status: .notFound),
+            body: .none
+        )
+        transport.queue(result: .success(notFound))
+
+        let notFoundConsole = ConsoleRecorder()
+        let notFoundExit = SwiftPie.run(
+            arguments: ["spie", "--check-status", "https://example.com/missing"],
+            context: CLIContext(
+                console: notFoundConsole,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(notFoundExit == 4)
+        #expect(notFoundConsole.error.contains("HTTP 404 Not Found"))
+
+        let serverError = ResponsePayload(
+            response: HTTPResponse(status: .internalServerError),
+            body: .none
+        )
+        transport.queue(result: .success(serverError))
+
+        let serverErrorConsole = ConsoleRecorder()
+        let serverErrorExit = SwiftPie.run(
+            arguments: ["spie", "--check-status", "https://example.com/error"],
+            context: CLIContext(
+                console: serverErrorConsole,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(serverErrorExit == 5)
+        #expect(serverErrorConsole.error.contains("HTTP 500 Internal Server Error"))
+    }
+
+    @Test("Follows redirects when --follow is provided")
+    func followsRedirectsWithFollowFlag() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+
+        var redirectHeaders = HTTPFields()
+        let location = try #require(HTTPField.Name("Location"))
+        redirectHeaders.append(HTTPField(name: location, value: "https://example.com/second"))
+
+        let redirect = ResponsePayload(
+            response: HTTPResponse(status: HTTPResponse.Status(code: 302), headerFields: redirectHeaders),
+            body: .none
+        )
+
+        let final = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("done")
+        )
+
+        transport.queue(result: .success(redirect))
+        transport.queue(result: .success(final))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--follow", "https://example.com/start"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+        #expect(transport.payloads.count == 2)
+
+        let second = try #require(transport.payloads.last)
+        #expect(second.request.path == "/second")
+
+        #expect(console.output.contains("HTTP/1.1 302 Found"))
+        #expect(console.output.contains("HTTP/1.1 200 OK"))
+    }
+
+    @Test("Respects --max-redirects guardrail")
+    func respectsMaxRedirects() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+
+        var repeatHeaders = HTTPFields()
+        let location = try #require(HTTPField.Name("Location"))
+        repeatHeaders.append(HTTPField(name: location, value: "https://example.com/loop"))
+
+        let redirect = ResponsePayload(
+            response: HTTPResponse(status: HTTPResponse.Status(code: 302), headerFields: repeatHeaders),
+            body: .none
+        )
+
+        transport.queue(result: .success(redirect))
+        transport.queue(result: .success(redirect))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--follow", "--max-redirects=1", "https://example.com/start"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 6)
+        #expect(console.error.contains("too many redirects"))
+        #expect(console.output.contains("HTTP/1.1 302 Found"))
+    }
+
+    @Test("Combines --follow with --check-status using final response")
+    func followAndCheckStatusUseFinalResponse() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+
+        var redirectHeaders = HTTPFields()
+        let location = try #require(HTTPField.Name("Location"))
+        redirectHeaders.append(HTTPField(name: location, value: "https://example.com/final"))
+
+        let redirect = ResponsePayload(
+            response: HTTPResponse(status: HTTPResponse.Status(code: 302), headerFields: redirectHeaders),
+            body: .none
+        )
+
+        let ok = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
+
+        transport.queue(result: .success(redirect))
+        transport.queue(result: .success(ok))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--follow", "--check-status", "https://example.com/start"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
         #expect(console.error.isEmpty)
     }
 

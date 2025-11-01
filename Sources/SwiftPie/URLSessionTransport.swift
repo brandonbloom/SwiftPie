@@ -4,6 +4,7 @@ import HTTPTypes
 public final class URLSessionTransport: RequestTransport {
     private let baseConfiguration: URLSessionConfiguration
     private let secureSession: URLSession
+    private let secureDelegate: SecureSessionDelegate
     private var insecureSession: URLSession?
     private var insecureDelegate: InsecureSessionDelegate?
     private let defaultTimeout: TimeInterval
@@ -24,7 +25,8 @@ public final class URLSessionTransport: RequestTransport {
         }
 
         self.baseConfiguration = config
-        self.secureSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+        self.secureDelegate = SecureSessionDelegate()
+        self.secureSession = URLSession(configuration: config, delegate: secureDelegate, delegateQueue: nil)
         self.defaultTimeout = config.timeoutIntervalForRequest
     }
 
@@ -264,7 +266,19 @@ public final class URLSessionTransport: RequestTransport {
 
 }
 
-private final class InsecureSessionDelegate: NSObject, URLSessionDelegate {
+private final class SecureSessionDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
+    }
+}
+
+private final class InsecureSessionDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
     func urlSession(
         _ session: URLSession,
         didReceive challenge: URLAuthenticationChallenge,
@@ -276,6 +290,16 @@ private final class InsecureSessionDelegate: NSObject, URLSessionDelegate {
         } else {
             completionHandler(.performDefaultHandling, nil)
         }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
     }
 }
 

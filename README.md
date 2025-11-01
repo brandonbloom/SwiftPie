@@ -45,6 +45,11 @@ swift run spie POST https://httpbin.org/post Authorization:"Bearer token" flag:=
 - Embed file contents in structured payloads with `field=@/path/to/text.txt` or `field:=@/path/to/data.json`; headers can read from files via `Header:@secrets/token.txt`.
 - Stdin shorthands work across headers, data fields, and raw bodies using `@-`, enabling pipelines such as `cat payload.json | swift run spie --raw=@- POST https://api.example.com`.
 
+### Redirects & Status Controls
+
+- Follow redirect chains with `--follow` (or `-F`) and tune hop limits via `--max-redirects`.
+- Add `--check-status` to exit with HTTP-aware codes (3 for redirect without follow, 4 for client errors, 5 for server errors) while emitting warnings on stderr.
+
 ## Peer Mode (In-Process Responders)
 
 Peer mode lets the CLI forward requests directly to Swift responders without a network hop. The core pieces are:
