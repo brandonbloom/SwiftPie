@@ -79,17 +79,15 @@ Phase Roadmap
 - Candidate test plan: Manual verification of the help text in a color-capable terminal; no automated assertions planned because the output mirrors the literal source.
 - Exit artifact: Track decisions and follow-ups in `context/phase-010.md`.
 
-### Phase 011 — Method & URL Parity (Remaining P0)
-- Objective: Align CLI method and URL behavior with httpie-go so custom verbs, HTTPS shorthands, and default schemes match user expectations.
-- Proposed scope to confirm with user: Allow arbitrary method tokens (preserving GET/POST inference), implement the `https` shorthand (e.g. `https pie.dev/get` → `https://pie.dev/get`), honour existing localhost shorthands, and surface a CLI toggle for default scheme selection (with docs clarifying Go’s behavior).
-- Candidate test plan: Parser specs covering custom verbs, explicit scheme overrides, and shorthand permutations; CLI-level tests verifying help/output for malformed methods and default-scheme toggles; integration smoke tests hitting the peer transport with nonstandard verbs.
-- Exit artifact: Capture outcomes in `context/phase-011.md`, noting any divergence kept for later phases.
+### Phase 011 — Method & URL Parity ✅
+- Delivered: Parser now accepts arbitrary method tokens (with heuristics that keep GET/POST inference intact), localhost shorthands remain intact under a configurable default scheme, and the CLI exposes a `--ssl` switch that toggles the implicit scheme to `https://`. Help text nudges users toward either explicit protocols or the new switch, matching the agreed scope without reviving the `https` alias. Details live in `context/phase-011.md`.
+- Follow-ups: Monitor bare-host heuristics and fold transport-capability warnings into the upcoming Phase 017 so peer mode can communicate unsupported options.
 
-### Phase 012 — Request Body Defaults & CLI Flags (Remaining P0)
-- Objective: Match httpie-go’s request-construction defaults, including `--json`, `--form`, `--raw`, file/header expansion, and stdin piping.
-- Proposed scope to confirm with user: Default plain `key=value` items to JSON bodies, add `--json`/`--form`/`--raw` flags, support `:=@file`, `=@file`, header/file `@` expansion, and `@-` stdin consumption with validation errors mirroring HTTPie. Update help text and docs accordingly.
-- Candidate test plan: Unit tests for each shorthand/flag combination, CLI integration tests covering stdin piping, file embeds, conflicting flag errors, and regression tests ensuring multipart/form transitions stay deterministic.
-- Exit artifact: Document behaviour and test coverage in `context/phase-012.md`.
+### Phase 012 — Request Body Defaults & CLI Flags (Next P0)
+- Objective: Match httpie-go’s request-construction defaults, including `--json`, `--form`, `--raw`, file/header expansion, and stdin piping so content-type and body inference align with user expectations.
+- Scope to confirm: Default plain `key=value` items to JSON bodies, add `--json`/`--form`/`--raw`, support `:=@file`, `=@file`, header/file `@` expansion, and `@-` stdin consumption with validation errors mirroring HTTPie. Refresh help/docs to describe the new behaviours and note the `--ssl` default-scheme toggle when relevant.
+- Test plan: Parser/build unit specs for each shorthand/flag combination, CLI integration tests covering stdin piping, file embeds, conflicting flag errors, and regression tests ensuring multipart/form transitions stay deterministic.
+- Exit artifact: Document behaviour and coverage in `context/phase-012.md`.
 
 ### Phase 013 — Redirects & Status Controls (Remaining P0)
 - Objective: Implement `--follow`, `--check-status`, and related exit-code handling to reach httpie-go’s execution parity.
@@ -114,6 +112,12 @@ Phase Roadmap
 - Proposed scope to confirm with user: Additional CLI flags (verbose, offline, pretty-print), UX refinements, documentation, and packaging/distribution.
 - Candidate test plan: Regression suite covering critical flags, golden-file output comparisons, documentation linting, and smoke tests across macOS targets.
 - Exit artifact: Summarize outcomes in `context/phase-016.md`.
+
+### Phase 017 — Transport Capabilities & Peer Parity (Queued P0)
+- Objective: Introduce a capability model for transports so the CLI can warn on unsupported flags in peer mode and tighten behaviour around timeouts and protocol toggles.
+- Scope to confirm: Define a `TransportCapabilities` surface for transports, push warnings through the CLI when options are ignored, wire peer-mode timeouts via Task cancellation, and update docs/help to spell out peer-specific differences.
+- Test plan: Unit tests for capability negotiation, peer transport timeout exercises, and CLI integration coverage ensuring warnings appear (and options still function) when capabilities differ.
+- Exit artifact: Track outcomes in `context/phase-017.md`, including guidance on when unsupported options should escalate to errors.
 
 Plan Maintenance
 ----------------

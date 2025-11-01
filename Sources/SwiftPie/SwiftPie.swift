@@ -17,6 +17,19 @@ public enum SwiftPie {
         exit(Int32(exitCode))
     }
 
+    /// Primary entry point allowing callers to supply a custom context.
+    /// - Parameters:
+    ///   - arguments: The raw command-line arguments, usually `CommandLine.arguments`.
+    ///   - context: Custom CLI dependencies such as transports or parser defaults.
+    /// - Returns: Never returns because it terminates the process with the exit code.
+    public static func main<Transport: RequestTransport>(
+        arguments: [String],
+        context: CLIContext<Transport>
+    ) -> Never {
+        let exitCode = run(arguments: arguments, context: context)
+        exit(Int32(exitCode))
+    }
+
     /// Utility that executes the CLI flow using the default context.
     public static func run(arguments: [String]) -> Int {
         run(arguments: arguments, context: CLIContext())
@@ -43,6 +56,7 @@ private struct ParsedCLIOptions {
     var verify: TransportOptions.TLSVerification
     var timeout: TimeInterval?
     var httpVersionPreference: TransportOptions.HTTPVersionPreference
+    var defaultScheme: RequestParserOptions.DefaultScheme
 }
 
 private enum AuthType {
@@ -70,6 +84,7 @@ private struct OptionParser {
         var verify: TransportOptions.TLSVerification = .enforced
         var timeout: TimeInterval?
         var httpVersionPreference: TransportOptions.HTTPVersionPreference = .automatic
+        var defaultScheme: RequestParserOptions.DefaultScheme = .http
 
         var index = 0
         while index < arguments.count {
@@ -94,6 +109,10 @@ private struct OptionParser {
                         continue
                     case "--http1":
                         httpVersionPreference = .http1Only
+                        index += 1
+                        continue
+                    case "--ssl":
+                        defaultScheme = .https
                         index += 1
                         continue
                     default:
@@ -191,7 +210,8 @@ private struct OptionParser {
             authTypeWasExplicit: authTypeExplicit,
             verify: verify,
             timeout: timeout,
-            httpVersionPreference: httpVersionPreference
+            httpVersionPreference: httpVersionPreference,
+            defaultScheme: defaultScheme
         )
     }
 
@@ -306,15 +326,18 @@ public struct CLIContext<Transport: RequestTransport> {
     public var console: any Console
     public var input: any InputSource
     public var transport: Transport
+    public var parserOptions: RequestParserOptions
 
     public init(
         console: any Console = StandardConsole(),
         input: any InputSource = StandardInput(),
-        transport: Transport
+        transport: Transport,
+        parserOptions: RequestParserOptions = .default
     ) {
         self.console = console
         self.input = input
         self.transport = transport
+        self.parserOptions = parserOptions
     }
 }
 
@@ -322,11 +345,13 @@ public extension CLIContext where Transport == URLSessionTransport {
     init(
         console: any Console = StandardConsole(),
         input: any InputSource = StandardInput(),
-        transport: Transport = URLSessionTransport()
+        transport: Transport = URLSessionTransport(),
+        parserOptions: RequestParserOptions = .default
     ) {
         self.console = console
         self.input = input
         self.transport = transport
+        self.parserOptions = parserOptions
     }
 }
 
@@ -379,7 +404,12 @@ private struct CLIRunner<Transport: RequestTransport> {
                 throw CLIOptionError.authTypeRequiresAuth
             }
 
-            let parsed = try RequestParser.parse(arguments: options.arguments)
+            var parserOptions = context.parserOptions
+            parserOptions.defaultScheme = options.defaultScheme
+            let parsed = try RequestParser.parse(
+                arguments: options.arguments,
+                options: parserOptions
+            )
             var payload = try RequestBuilder.build(from: parsed)
 
             if options.authProvided, let header = try authorizationHeader(for: options) {
@@ -430,7 +460,7 @@ private struct CLIRunner<Transport: RequestTransport> {
             label: "METHOD",
             details: [
                 "Optional. \(command("spie")) infers GET unless data or file items are supplied; then POST is used.",
-                "Supported methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS."
+                "Supports standard verbs (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS) and custom tokens."
             ]
         ))
         lines.append("")
@@ -438,7 +468,7 @@ private struct CLIRunner<Transport: RequestTransport> {
             label: "URL",
             details: [
                 "Required. Provide an absolute URL or use localhost shorthands like \(example(":/status/200")).",
-                "Schemes default to http:// when omitted."
+                "Schemes default to http:// when omitted; use \(command("--ssl")) to prefer https://."
             ]
         ))
         lines.append("")
@@ -464,6 +494,7 @@ private struct CLIRunner<Transport: RequestTransport> {
         lines.append(optionLine(flags: "    --timeout SEC", description: "Set the request timeout in seconds (must be positive)."))
         lines.append(optionLine(flags: "    --verify [BOOL]", description: "Set to false (or no/0) to disable TLS verification; defaults to true."))
         lines.append(optionLine(flags: "    --http1", description: "Force HTTP/1.1 for the request."))
+        lines.append(optionLine(flags: "    --ssl", description: "Switch the default scheme to https:// when no scheme is provided."))
         lines.append("")
 
         lines.append(heading("Input & Prompts"))

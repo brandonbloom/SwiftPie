@@ -6,8 +6,8 @@ Legend:
 - Status icons — HTTPie ✅, httpie-go ✅/⚠️/❌.
 
 ## HTTP Method & URL Handling
-- [ ] **P0 Methods & verb inference** — HTTPie ✅ | httpie-go ✅ — Custom verbs plus GET/POST defaults based on body presence. (Phase 002 infers GET/POST; custom verb passthrough still pending.)
-- [ ] **P0 URL defaults & localhost shortcuts** — HTTPie ✅ | httpie-go ⚠️ — Default scheme, `https` alias, `:/` shorthand; Go lacks `--default-scheme` and `--path-as-is`. (Phase 002 normalizes bare hosts and `:` shorthands; `https` alias & path-as-is behaviour remain.)
+- [x] **P0 Methods & verb inference** — HTTPie ✅ | httpie-go ✅ — Custom verbs plus GET/POST defaults based on body presence. (Phase 011 added method-token heuristics on top of the Phase 002 inference.)
+- [ ] **P0 URL defaults & localhost shortcuts** — HTTPie ✅ | httpie-go ⚠️ — Default scheme, `https` alias, `:/` shorthand; Go lacks `--default-scheme` and `--path-as-is`. (Phase 011 introduced the `--ssl` default-scheme toggle and base-URL support; the playful `https` alias remains intentionally omitted.)
 - [ ] **P2 Additional URL controls (`--default-scheme`, `--path-as-is`)** — HTTPie ✅ | httpie-go ❌ — Expose explicit scheme override and disable path normalization.
 
 ## Request Item Syntax & Payload Shorthands

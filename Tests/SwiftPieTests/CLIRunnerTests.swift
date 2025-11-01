@@ -109,6 +109,33 @@ struct CLIRunnerTests {
         #expect(console.error.contains("transport error: unreachable host"))
     }
 
+    @Test("Switches the default scheme to https when --ssl is provided")
+    func switchesDefaultSchemeWithSSLFlag() throws {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
+        transport.queue(result: .success(response))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--ssl", "example.com/path"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+
+        let payload = try #require(transport.payloads.first)
+        #expect(payload.request.scheme == "https")
+        #expect(payload.request.authority == "example.com")
+        #expect(payload.request.path == "/path")
+    }
+
     @Test("Reports unknown options before attempting to parse the request")
     func reportsUnknownOptions() {
         let console = ConsoleRecorder()

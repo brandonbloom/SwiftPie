@@ -152,4 +152,61 @@ struct RequestParserTests {
             FileField(name: "escaped name", path: URL(fileURLWithPath: "path with spaces"))
         ])
     }
+
+    @Test("Parses custom HTTP methods when explicitly provided")
+    func parsesCustomHTTPMethods() throws {
+        let parsed = try RequestParser.parse(arguments: [
+            "PURGE",
+            "https://example.com/cache"
+        ])
+
+        #expect(parsed.method.rawValue == "PURGE")
+    }
+
+    @Test("Parses lowercase standard method tokens")
+    func parsesLowercaseStandardMethods() throws {
+        let parsed = try RequestParser.parse(arguments: [
+            "delete",
+            "https://example.com/item"
+        ])
+
+        #expect(parsed.method == .delete)
+    }
+
+    @Test("Applies https default scheme when configured")
+    func appliesHTTPSDefaultScheme() throws {
+        let parsed = try RequestParser.parse(
+            arguments: ["example.com/resource"],
+            options: RequestParserOptions(defaultScheme: .https)
+        )
+
+        #expect(parsed.url.scheme == "https")
+        #expect(parsed.url.host == "example.com")
+    }
+
+    @Test("Applies default scheme to localhost shorthand")
+    func appliesDefaultSchemeToLocalhostShorthand() throws {
+        let parsed = try RequestParser.parse(
+            arguments: [":3000"],
+            options: RequestParserOptions(defaultScheme: .https)
+        )
+
+        #expect(parsed.url.scheme == "https")
+        #expect(parsed.url.host == "localhost")
+        #expect(parsed.url.port == 3000)
+    }
+
+    @Test("Resolves relative URLs against provided base URL")
+    func resolvesRelativeURLsAgainstBase() throws {
+        let base = URL(string: "https://peer.local")!
+        let parsed = try RequestParser.parse(
+            arguments: ["/get?x=1"],
+            options: RequestParserOptions(defaultScheme: .http, baseURL: base)
+        )
+
+        #expect(parsed.url.scheme == "https")
+        #expect(parsed.url.host == "peer.local")
+        #expect(parsed.url.path == "/get")
+        #expect(parsed.url.query == "x=1")
+    }
 }

@@ -1,12 +1,34 @@
 import Foundation
 
+public struct RequestParserOptions: Equatable, Sendable {
+    public enum DefaultScheme: String, Equatable, Sendable {
+        case http
+        case https
+
+        var scheme: String { rawValue }
+    }
+
+    public var defaultScheme: DefaultScheme
+    public var baseURL: URL?
+
+    public static let `default` = RequestParserOptions()
+
+    public init(defaultScheme: DefaultScheme = .http, baseURL: URL? = nil) {
+        self.defaultScheme = defaultScheme
+        self.baseURL = baseURL
+    }
+}
+
 enum RequestParser {
-    static func parse(arguments: [String]) throws -> ParsedRequest {
+    static func parse(
+        arguments: [String],
+        options: RequestParserOptions = .default
+    ) throws -> ParsedRequest {
         var iterator = arguments[...]
 
         let explicitMethod: HTTPMethod?
         if let candidate = iterator.first,
-           let method = HTTPMethod(rawValue: candidate.uppercased()) {
+           let method = parseMethodToken(candidate) {
             explicitMethod = method
             iterator = iterator.dropFirst()
         } else {
@@ -18,7 +40,7 @@ enum RequestParser {
         }
         iterator = iterator.dropFirst()
 
-        let normalizedURLToken = normalizeURLToken(rawURLToken)
+        let normalizedURLToken = normalizeURLToken(rawURLToken, options: options)
         guard var components = URLComponents(string: normalizedURLToken) else {
             throw RequestParserError.invalidURL(rawURLToken)
         }
@@ -367,8 +389,14 @@ private func parseJSONValue(_ rawValue: String) throws -> JSONValue {
     return try JSONValue(any: json)
 }
 
-private func normalizeURLToken(_ token: String) -> String {
-    if let shorthand = expandLocalhostShorthand(token) {
+private func normalizeURLToken(
+    _ token: String,
+    options: RequestParserOptions
+) -> String {
+    if let shorthand = expandLocalhostShorthand(
+        token,
+        options: options
+    ) {
         return shorthand
     }
 
@@ -376,36 +404,102 @@ private func normalizeURLToken(_ token: String) -> String {
         return token
     }
 
-    return "http://\(token)"
+    if token.hasPrefix("/"),
+       let baseURL = options.baseURL,
+       let resolved = URL(string: token, relativeTo: baseURL) {
+        return resolved.absoluteString
+    }
+
+    return "\(options.defaultScheme.scheme)://\(token)"
 }
 
-private func expandLocalhostShorthand(_ token: String) -> String? {
+private func expandLocalhostShorthand(
+    _ token: String,
+    options: RequestParserOptions
+) -> String? {
     guard let first = token.first, first == ":" else {
         return nil
     }
 
+    let defaultScheme = options.defaultScheme
+
+    let schemePrefix = "\(defaultScheme.scheme)://"
+
     let indexAfterColon = token.index(after: token.startIndex)
     if indexAfterColon < token.endIndex, token[indexAfterColon] == ":" {
-        return "http://\(token)"
+        return "\(schemePrefix)\(token)"
     }
 
     let remainder = token[indexAfterColon...]
     if remainder.isEmpty {
-        return "http://localhost"
+        return "\(schemePrefix)localhost"
     }
 
     if remainder.first == "/" {
-        return "http://localhost\(remainder)"
+        return "\(schemePrefix)localhost\(remainder)"
     }
 
     if let slashIndex = remainder.firstIndex(of: "/") {
         let port = remainder[..<slashIndex]
         let path = remainder[slashIndex...]
-        return "http://localhost:\(port)\(path)"
+        return "\(schemePrefix)localhost:\(port)\(path)"
     }
 
-    return "http://localhost:\(remainder)"
+    return "\(schemePrefix)localhost:\(remainder)"
 }
+
+private func parseMethodToken(_ token: String) -> HTTPMethod? {
+    let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty,
+          isValidMethodToken(trimmed) else {
+        return nil
+    }
+
+    let uppercase = trimmed.uppercased()
+    let containsUppercase = trimmed.rangeOfCharacter(
+        from: CharacterSet.uppercaseLetters
+    ) != nil
+
+    if containsUppercase {
+        return HTTPMethod(rawValue: uppercase)
+    }
+
+    if commonHTTPMethodSet.contains(uppercase) {
+        return HTTPMethod(rawValue: uppercase)
+    }
+
+    return nil
+}
+
+private func isValidMethodToken(_ token: String) -> Bool {
+    for scalar in token.unicodeScalars {
+        if !httpTokenCharacterSet.contains(scalar) {
+            return false
+        }
+    }
+    return true
+}
+
+private let httpTokenCharacterSet: CharacterSet = {
+    var characters = CharacterSet()
+    characters.formUnion(CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+    characters.formUnion(CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz"))
+    characters.formUnion(CharacterSet(charactersIn: "0123456789"))
+    characters.formUnion(CharacterSet(charactersIn: "!#$%&'*+-.^_`|~"))
+    return characters
+}()
+
+private let commonHTTPMethodSet: Set<String> = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "HEAD",
+    "OPTIONS",
+    "TRACE",
+    "CONNECT"
+]
 
 public enum RequestParserError: Error, Equatable {
     case missingURL
@@ -548,12 +642,18 @@ public struct FileField: Equatable {
     }
 }
 
-public enum HTTPMethod: String, Equatable, CaseIterable {
-    case delete = "DELETE"
-    case get = "GET"
-    case head = "HEAD"
-    case patch = "PATCH"
-    case post = "POST"
-    case put = "PUT"
-    case options = "OPTIONS"
+public struct HTTPMethod: Equatable, Hashable, Sendable {
+    public var rawValue: String
+
+    public init(rawValue: String) {
+        self.rawValue = rawValue.uppercased()
+    }
+
+    public static let delete = HTTPMethod(rawValue: "DELETE")
+    public static let get = HTTPMethod(rawValue: "GET")
+    public static let head = HTTPMethod(rawValue: "HEAD")
+    public static let patch = HTTPMethod(rawValue: "PATCH")
+    public static let post = HTTPMethod(rawValue: "POST")
+    public static let put = HTTPMethod(rawValue: "PUT")
+    public static let options = HTTPMethod(rawValue: "OPTIONS")
 }
