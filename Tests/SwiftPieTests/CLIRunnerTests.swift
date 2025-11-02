@@ -853,7 +853,259 @@ struct CLIRunnerTests {
         #expect(exitCode == Int(EX_USAGE))
         #expect(console.error.contains("--auth-type requires --auth"))
     }
+
+    @Test("Quiet mode suppresses stdout but shows errors")
+    func quietModeSuppressesStdoutOnly() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        transport.queue(result: .failure(.networkError("connection failed")))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-q", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 1)
+        #expect(console.output.isEmpty)
+        #expect(console.error.contains("connection failed"))
+    }
+
+    @Test("Quiet mode with --quiet flag suppresses stdout but shows errors")
+    func quietModeWithLongFlagSuppressesStdoutOnly() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        transport.queue(result: .failure(.networkError("host unreachable")))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--quiet", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 1)
+        #expect(console.output.isEmpty)
+        #expect(console.error.contains("host unreachable"))
+    }
+
+    @Test("Very quiet mode suppresses all output including errors")
+    func veryQuietModeSuppressesEverything() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        transport.queue(result: .failure(.networkError("connection failed")))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-qq", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 1)
+        #expect(console.output.isEmpty)
+        #expect(console.error.isEmpty)
+    }
+
+    @Test("Quiet mode with successful response suppresses body and headers")
+    func quietModeWithSuccessfulResponse() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("Success response body")
+        )
+        transport.queue(result: .success(response))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-q", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+        #expect(console.output.isEmpty)
+        #expect(console.error.isEmpty)
+    }
+
+    @Test("Very quiet mode with successful response suppresses all output")
+    func veryQuietModeWithSuccessfulResponse() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("Success response body")
+        )
+        transport.queue(result: .success(response))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-qq", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+        #expect(console.output.isEmpty)
+        #expect(console.error.isEmpty)
+    }
+
+    @Test("Quiet mode shows HTTP errors to stderr when --check-status is used")
+    func quietModeShowsHTTPErrorsWithCheckStatus() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let notFound = ResponsePayload(
+            response: HTTPResponse(status: .notFound),
+            body: .text("Not found")
+        )
+        transport.queue(result: .success(notFound))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-q", "--check-status", "https://example.com/missing"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 4)
+        #expect(console.output.isEmpty)
+        #expect(console.error.contains("HTTP 404"))
+    }
+
+    @Test("Very quiet mode suppresses HTTP errors even with --check-status")
+    func veryQuietModeSuppressesHTTPErrorsWithCheckStatus() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let notFound = ResponsePayload(
+            response: HTTPResponse(status: .notFound),
+            body: .text("Not found")
+        )
+        transport.queue(result: .success(notFound))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-qq", "--check-status", "https://example.com/missing"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 4)
+        #expect(console.output.isEmpty)
+        #expect(console.error.isEmpty)
+    }
+
+    @Test("Quiet mode exit codes work correctly for successful requests")
+    func quietModeExitCodesForSuccess() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("OK")
+        )
+        transport.queue(result: .success(response))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-q", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+    }
+
+    @Test("Quiet mode exit codes work correctly for transport errors")
+    func quietModeExitCodesForTransportErrors() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        transport.queue(result: .failure(.networkError("timeout")))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-q", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 1)
+    }
+
+    @Test("Very quiet mode exit codes work correctly")
+    func veryQuietModeExitCodesWork() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        transport.queue(result: .failure(.networkError("error")))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-qq", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 1)
+    }
+
+    @Test("Normal mode displays response body and headers")
+    func normalModeShowsOutput() {
+        let console = ConsoleRecorder()
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("Response body")
+        )
+        transport.queue(result: .success(response))
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+        #expect(console.output.contains("HTTP/1.1 200 OK"))
+        #expect(console.output.contains("Response body"))
+        #expect(console.error.isEmpty)
+    }
+
+    @Test("Quiet mode validation errors bypass quiet suppression")
+    func quietModeValidationErrorsShown() {
+        let console = ConsoleRecorder()
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "-q", "--unknown-flag", "https://example.com"],
+            context: CLIContext(console: console, input: NonInteractiveInput())
+        )
+
+        #expect(exitCode == Int(EX_USAGE))
+        #expect(console.error.contains("unknown option"))
+    }
 }
+
 
 private final class PeerRequestRecorder: @unchecked Sendable {
     private let lock = NSLock()
