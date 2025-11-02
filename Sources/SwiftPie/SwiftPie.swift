@@ -40,7 +40,7 @@ public enum SwiftPie {
         arguments: [String],
         context: CLIContext<Transport>
     ) -> Int {
-        let runner = CLIRunner(arguments: arguments, context: context)
+        var runner = CLIRunner(arguments: arguments, context: context)
         return runner.run()
     }
 
@@ -107,11 +107,37 @@ private struct ParsedCLIOptions {
     var maxRedirects: Int?
     var checkStatus: Bool
     var quietLevel: QuietLevel
+    var prettyMode: PrettyMode?
 }
 
 private enum AuthType {
     case basic
     case bearer
+}
+
+enum PrettyMode: Equatable {
+    case all
+    case colors
+    case format
+    case none
+
+    var enablesColors: Bool {
+        switch self {
+        case .all, .colors:
+            return true
+        case .format, .none:
+            return false
+        }
+    }
+
+    var enablesFormatting: Bool {
+        switch self {
+        case .all, .format:
+            return true
+        case .colors, .none:
+            return false
+        }
+    }
 }
 
 private enum PromptUnavailableReason {
@@ -145,6 +171,7 @@ private struct OptionParser {
         var rawBody: RawBodyInput?
         var bodyOptionName: String?
         var forceJSONAccept = false
+        var prettyMode: PrettyMode?
         var followRedirects = false
         var maxRedirects: Int?
         var checkStatus = false
@@ -272,14 +299,23 @@ private struct OptionParser {
                             guard let parsed = Double(value), parsed > 0 else {
                                 throw CLIOptionError.invalidTimeout(value)
                             }
-                            timeout = parsed
-                            index = nextIndex
+                        timeout = parsed
+                        index = nextIndex
+                        continue
+                    case "--pretty":
+                        let (value, nextIndex) = try consumeValue(
+                            inline: inlineValue,
+                            currentIndex: index,
+                            option: "--pretty"
+                        )
+                        prettyMode = try parsePretty(value)
+                        index = nextIndex
+                        continue
+                    case "--verify":
+                        if let inlineValue {
+                            verify = try parseVerify(inlineValue)
+                            index += 1
                             continue
-                        case "--verify":
-                            if let inlineValue {
-                                verify = try parseVerify(inlineValue)
-                                index += 1
-                                continue
                             } else {
                                 let (candidate, nextIndex) = consumeOptionalValue(currentIndex: index)
                                 if let candidate {
@@ -362,7 +398,8 @@ private struct OptionParser {
             followRedirects: followRedirects,
             maxRedirects: maxRedirects,
             checkStatus: checkStatus,
-            quietLevel: quietLevel
+            quietLevel: quietLevel,
+            prettyMode: prettyMode
         )
     }
 
@@ -432,6 +469,21 @@ private struct OptionParser {
             throw CLIOptionError.invalidVerifyValue(value)
         }
     }
+
+    private func parsePretty(_ value: String) throws -> PrettyMode {
+        switch value.lowercased() {
+        case "all":
+            return .all
+        case "colors", "colour", "color":
+            return .colors
+        case "format", "formats":
+            return .format
+        case "none":
+            return .none
+        default:
+            throw CLIOptionError.invalidPrettyValue(value)
+        }
+    }
 }
 
 private enum CLIOptionError: Error {
@@ -440,6 +492,7 @@ private enum CLIOptionError: Error {
     case invalidTimeout(String)
     case invalidMaxRedirects(String)
     case invalidVerifyValue(String)
+    case invalidPrettyValue(String)
     case invalidAuthType(String)
     case authTypeRequiresAuth
     case passwordPromptUnavailable(PromptUnavailableReason)
@@ -462,6 +515,8 @@ private extension CLIOptionError {
             return "invalid max redirects value '\(value)'"
         case .invalidVerifyValue(let value):
             return "invalid verify value '\(value)'"
+        case .invalidPrettyValue(let value):
+            return "invalid value for --pretty: '\(value)'"
         case .invalidAuthType(let type):
             return "unsupported auth type '\(type)'"
         case .authTypeRequiresAuth:
@@ -559,43 +614,43 @@ private enum ExitCode {
 
 private struct CLIRunner<Transport: RequestTransport> {
     private let arguments: [String]
-    private let context: CLIContext<Transport>
+    private var context: CLIContext<Transport>
 
     init(arguments: [String], context: CLIContext<Transport>) {
         self.arguments = arguments
         self.context = context
     }
 
-    func run() -> Int {
+    mutating func run() -> Int {
         let userArguments = Array(arguments.dropFirst())
 
         do {
             let options = try OptionParser(arguments: userArguments).parse()
 
-            if options.showHelp || options.arguments.isEmpty {
-                context.console.out(helpText)
-                return ExitCode.success.rawValue
-            }
-
-            // Wrap console with quiet console if needed
-            let effectiveConsole: any Console
+            // Apply quiet mode by swapping the console early so downstream code
+            // continues to interact with `context.console` as usual.
             switch options.quietLevel {
             case .none:
-                effectiveConsole = context.console
+                break
             case .quiet:
-                // Suppress stdout, keep stderr for errors
-                effectiveConsole = QuietConsole(
+                context.console = QuietConsole(
                     underlying: context.console,
                     suppressStdout: true,
                     suppressStderr: false
                 )
             case .veryQuiet:
-                // Suppress both stdout and stderr
-                effectiveConsole = QuietConsole(
+                context.console = QuietConsole(
                     underlying: context.console,
                     suppressStdout: true,
                     suppressStderr: true
                 )
+            }
+
+            let prettyMode = resolvePrettyMode(explicit: options.prettyMode)
+
+            if options.showHelp || options.arguments.isEmpty {
+                context.console.out(helpText)
+                return ExitCode.success.rawValue
             }
 
             if options.authTypeWasExplicit && !options.authProvided {
@@ -659,10 +714,10 @@ private struct CLIRunner<Transport: RequestTransport> {
                 maxRedirects: maxRedirects
             )
 
-            let formatted = ResponseFormatter().format(chain.responses)
-            effectiveConsole.out(formatted)
+            let formatted = ResponseFormatter(pretty: prettyMode).format(chain.responses)
+            context.console.out(formatted)
             if let error = chain.error {
-                effectiveConsole.error("error: \(error.cliDescription)\n")
+                context.console.error("error: \(error.cliDescription)\n")
                 return error.exitCode.rawValue
             }
 
@@ -677,7 +732,7 @@ private struct CLIRunner<Transport: RequestTransport> {
             )
 
             if let message = statusFailureMessage(for: exit, status: finalResponse.response.status) {
-                effectiveConsole.error("http error: \(message)\n")
+                context.console.error("http error: \(message)\n")
             }
 
             return exit.rawValue
@@ -725,6 +780,18 @@ private struct CLIRunner<Transport: RequestTransport> {
         }
 
         return false
+    }
+
+    private func resolvePrettyMode(explicit: PrettyMode?) -> PrettyMode {
+        if let explicit {
+            return explicit
+        }
+
+        if context.console.isOutputTerminal {
+            return .all
+        }
+
+        return .none
     }
 
     private func expandStdinValues(in request: ParsedRequest, stdinData: Data) throws -> ParsedRequest {
@@ -1090,6 +1157,10 @@ private struct CLIRunner<Transport: RequestTransport> {
         lines.append(optionLine(flags: "    --check-status", description: "Exit with HTTP-aware error codes on 3xx/4xx/5xx responses."))
         lines.append("")
 
+        lines.append(heading("Output"))
+        lines.append(optionLine(flags: "    --pretty {all|colors|format|none}", description: "Control response colors and formatting (defaults depend on stdout)."))
+        lines.append("")
+
         lines.append(heading("Input & Prompts"))
         lines.append(optionLine(flags: "-I, --ignore-stdin", description: "Skip reading stdin and disable interactive password prompts."))
         lines.append("")
@@ -1103,7 +1174,7 @@ private struct CLIRunner<Transport: RequestTransport> {
         lines.append(optionLine(flags: "-h, --help", description: "Show this help message and exit."))
         lines.append("")
 
-        lines.append("  Colors are disabled automatically when output is redirected.")
+        lines.append("  Colors are disabled automatically when output is redirected; override with --pretty.")
 
         return lines.joined(separator: "\n") + "\n"
     }

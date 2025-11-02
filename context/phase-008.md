@@ -1,31 +1,20 @@
 # Phase 008 Notes — CLI Help & Usage Parity
 
 ## Objectives
-- Rebuild the CLI help/usage output so it mirrors `http --help` for all delivered
-  features, including colorized sections and consistent wording.
-- Ensure help text evolves alongside new functionality by codifying review
-  checklists and test coverage.
+- Mirror `http --help` with color-aware sections and wording that reflects all SwiftPie features delivered to date.
+- Keep the help surface maintainable so every new CLI flag or behaviour updates the shared renderer and tests.
 
-## Proposed Scope
-- Introduce a styled help renderer that outputs colorized sections similar to
-  HTTPie (headers, argument groups, option lists) with terminal detection.
-- Sync existing option descriptions with HTTPie phrasing for matching features
-  and introduce placeholders for not-yet-implemented flags.
-- Add developer tooling/tests that diff SwiftPie’s help output against captured
-  expectations and optionally against the system `http --help` for overlapping
-  sections.
-- Document a contribution guideline requiring every new CLI flag or behaviour to
-  update help text and associated tests.
+## Implementation Highlights
+- Rebuilt the `helpText` generator in `CLIRunner` (see `Sources/SwiftPie/SwiftPie.swift`) to emit HTTPie-style sections with Rainbow styling for headings, flags, separators, and examples. Terminal detection falls back to plain output automatically.
+- Consolidated help copy alongside the parser so new options (e.g. `--follow`, `--pretty`, `--ssl`) are documented in one place; contributors are now expected to touch this builder whenever CLI flags change.
+- Grouped positional argument guidance into labeled blocks that match HTTPie’s terminology (`URL`, `REQUEST_ITEM`) while calling out SwiftPie-specific defaults such as JSON encoding and stdin shorthands.
 
-## Test Plan Draft
-- Snapshot/spec tests asserting the formatted help output (including ANSI
-  sequences when colors are enabled and plain output otherwise).
-- Integration smoke test invoking `SwiftPie --help` through the CLI runner to
-  ensure exit code, stdout, and stderr align with expectations.
-- Optional comparison harness that fetches `http --help` at test time (or via a
-  fixture) to verify shared sections stay aligned.
+## Test Coverage
+- `CLIRunnerTests.displaysHelpForEmptyArguments` exercises the help path end-to-end, asserting the canonical sections appear and exit code 0 is returned when no arguments are provided.
+- Additional CLI runner specs validate pretty-mode defaults for TTY/non-TTY consoles, indirectly confirming the color detection used by the help renderer.
+- Manual `spie --help` spot checks (logged during Phase 010) confirmed ANSI styling renders legibly with Rainbow’s palette.
 
-## Open Questions
-- Do we surface unreleased flags with “Coming soon” notes or hide them until
-  implementation?
-- How strict should the help-vs-HTTPie diffing be when HTTPie changes upstream?
+## Decisions & Follow-ups
+- We intentionally document only shipped flags—no “coming soon” placeholders—so the help output always reflects real functionality.
+- A snapshot/diff harness against upstream HTTPie help was deemed brittle; future parity audits can re-evaluate this once the CLI surface stabilises.
+- Maintain the existing integration test coverage; expand with explicit snapshot tests only if future refactors make regressions likely.

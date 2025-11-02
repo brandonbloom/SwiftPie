@@ -57,7 +57,7 @@ Legend:
 ## Output & UX
 - [ ] **P0 Print selection (`--print`, `--headers`, `--body`)** — HTTPie ✅ | httpie-go ✅ — Choose which parts of the exchange to display.
 - [ ] **P0 Verbose request/response (`-v`)** — HTTPie ✅ | httpie-go ✅ — Show full request and response messages.
-- [ ] **P0 Pretty formatting toggles (`--pretty=all|none|format`)** — HTTPie ✅ | httpie-go ✅ — Control formatting and color usage.
+- [x] **P0 Pretty formatting toggles (`--pretty=all|colors|format|none`)** — HTTPie ✅ | httpie-go ✅ — Control formatting and color usage. (Phase 014 ✅)
 - [ ] **P1 Extra verbose & metadata (`--meta`, `-vv`)** — HTTPie ✅ | httpie-go ❌ — Report timing and connection metadata.
 - [ ] **P1 Quiet mode (`--quiet`, `-qq`)** — HTTPie ✅ | httpie-go ❌ — Suppress output except errors (and optionally warnings).
 - [ ] **P1 History printing (`--history-print`, `--all`)** — HTTPie ✅ | httpie-go ❌ — Display intermediate redirects or multiple responses.

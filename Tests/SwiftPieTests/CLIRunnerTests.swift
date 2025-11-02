@@ -175,6 +175,142 @@ struct CLIRunnerTests {
         #expect(console.error.isEmpty)
     }
 
+    @Test("Honors --pretty options for response output")
+    func honorsPrettyOptionValues() {
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("{\"message\":\"hello\",\"count\":1}")
+        )
+        transport.queue(result: .success(response))
+
+        let noneConsole = ConsoleRecorder()
+        let noneExit = SwiftPie.run(
+            arguments: ["spie", "--pretty=none", "https://example.com"],
+            context: CLIContext(
+                console: noneConsole,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(noneExit == 0)
+        #expect(!noneConsole.output.contains("\u{001B}["))
+        #expect(!noneConsole.output.contains("\n    \"message\""))
+
+        transport.queue(result: .success(response))
+
+        let formatConsole = ConsoleRecorder()
+        let formatExit = SwiftPie.run(
+            arguments: ["spie", "--pretty=format", "https://example.com"],
+            context: CLIContext(
+                console: formatConsole,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(formatExit == 0)
+        #expect(!formatConsole.output.contains("\u{001B}["))
+        #expect(formatConsole.output.contains("\n  \"message\""))
+
+        transport.queue(result: .success(response))
+
+        let colorsConsole = ConsoleRecorder()
+        let colorsExit = SwiftPie.run(
+            arguments: ["spie", "--pretty=colors", "https://example.com"],
+            context: CLIContext(
+                console: colorsConsole,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(colorsExit == 0)
+        #expect(colorsConsole.output.contains("\u{001B}["))
+        #expect(!colorsConsole.output.contains("\n  \"message\""))
+
+        transport.queue(result: .success(response))
+
+        let allConsole = ConsoleRecorder()
+        let allExit = SwiftPie.run(
+            arguments: ["spie", "--pretty=all", "https://example.com"],
+            context: CLIContext(
+                console: allConsole,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(allExit == 0)
+        #expect(allConsole.output.contains("\u{001B}["))
+        #expect(allConsole.output.contains("\n  \"message\""))
+    }
+
+    @Test("Defaults to all pretty when console is a terminal")
+    func defaultsToAllPrettyWhenTerminal() {
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("{\"message\":\"hello\"}")
+        )
+        transport.queue(result: .success(response))
+
+        let console = ConsoleRecorder(isTerminal: true)
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+        #expect(console.output.contains("\u{001B}["))
+        #expect(console.output.contains("\n  \"message\""))
+    }
+
+    @Test("Defaults to none pretty when console is not a terminal")
+    func defaultsToNonePrettyWhenConsoleIsNotTerminal() {
+        let transport = TransportRecorder()
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("{\"message\":\"hello\"}")
+        )
+        transport.queue(result: .success(response))
+
+        let console = ConsoleRecorder(isTerminal: false)
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transport: transport
+            )
+        )
+
+        #expect(exitCode == 0)
+        #expect(!console.output.contains("\u{001B}["))
+        #expect(!console.output.contains("\n  \"message\""))
+    }
+
+    @Test("Rejects unknown pretty values")
+    func rejectsUnknownPrettyValues() {
+        let console = ConsoleRecorder()
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--pretty=invalid", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput()
+            )
+        )
+
+        #expect(exitCode == Int(EX_USAGE))
+        #expect(console.output.isEmpty)
+        #expect(console.error.contains("invalid value for --pretty"))
+    }
+
     @Test("Maps --check-status to HTTP-aware exit codes")
     func checkStatusMapsToHttpExitCodes() throws {
         let transport = TransportRecorder()
@@ -1127,6 +1263,11 @@ private final class PeerRequestRecorder: @unchecked Sendable {
 private final class ConsoleRecorder: Console {
     private(set) var output = ""
     private(set) var error = ""
+    let isOutputTerminal: Bool
+
+    init(isTerminal: Bool = true) {
+        self.isOutputTerminal = isTerminal
+    }
 
     func write(_ text: String, to stream: ConsoleStream) {
         switch stream {

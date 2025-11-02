@@ -15,12 +15,14 @@ struct ResponseFormatterTests {
             body: .text("{\"message\":\"hello\"}")
         )
 
-        let formatted = ResponseFormatter().format([response])
+        let formatted = ResponseFormatter(pretty: .all).format([response])
+        let plain = strippingANSI(formatted)
 
-        #expect(formatted.contains("HTTP/1.1 200 OK"))
-        #expect(formatted.contains("Content-Type: application/json"))
-        #expect(formatted.contains("X-Custom: value"))
-        #expect(formatted.contains("{\"message\":\"hello\"}"))
+        #expect(formatted.contains("\u{001B}["))
+        #expect(plain.contains("HTTP/1.1 200 OK"))
+        #expect(plain.contains("Content-Type: application/json"))
+        #expect(plain.contains("X-Custom: value"))
+        #expect(plain.contains("\"message\" : \"hello\""))
     }
 
     @Test("Omits body section when response body is empty")
@@ -30,7 +32,7 @@ struct ResponseFormatterTests {
             body: .none
         )
 
-        let formatted = ResponseFormatter().format([response])
+        let formatted = ResponseFormatter(pretty: .format).format([response])
 
         #expect(formatted.contains("HTTP/1.1 204 No Content"))
         #expect(!formatted.contains("\n\n\n"))
@@ -49,10 +51,58 @@ struct ResponseFormatterTests {
             body: .text("done")
         )
 
-        let formatted = ResponseFormatter().format([redirect, final])
+        let formatted = ResponseFormatter(pretty: .all).format([redirect, final])
 
         #expect(formatted.contains("HTTP/1.1 302 Found"))
         #expect(formatted.contains("HTTP/1.1 200 OK"))
         #expect(formatted.contains("done"))
     }
+
+    @Test("Disables colors and formatting in none mode")
+    func disablesFormattingInNoneMode() {
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("{\"message\":\"hello\"}")
+        )
+
+        let formatted = ResponseFormatter(pretty: .none).format([response])
+
+        #expect(!formatted.contains("\u{001B}["))
+        #expect(formatted.contains("{\"message\":\"hello\"}"))
+        #expect(!formatted.contains("\n    \"message\""))
+    }
+
+    @Test("Applies JSON indentation when format enabled")
+    func indentsJsonWhenFormattingEnabled() {
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("{\"message\":\"hello\",\"count\":1}")
+        )
+
+        let formatted = ResponseFormatter(pretty: .format).format([response])
+
+        #expect(formatted.contains("\n  \"message\""))
+        #expect(!formatted.contains("\u{001B}["))
+    }
+
+    @Test("Applies ANSI styling when colors enabled")
+    func appliesColorsWhenEnabled() {
+        let response = ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .text("{\"message\":\"hello\"}")
+        )
+
+        let formatted = ResponseFormatter(pretty: .colors).format([response])
+
+        #expect(formatted.contains("\u{001B}["))
+        #expect(formatted.contains("HTTP/1.1"))
+    }
+}
+
+private func strippingANSI(_ text: String) -> String {
+    text.replacingOccurrences(
+        of: "\u{001B}\\[[0-9;]*m",
+        with: "",
+        options: .regularExpression
+    )
 }

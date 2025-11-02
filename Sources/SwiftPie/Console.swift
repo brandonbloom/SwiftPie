@@ -1,11 +1,18 @@
 import Foundation
 
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
+
 public enum ConsoleStream {
     case standardOutput
     case standardError
 }
 
 public protocol Console: AnyObject {
+    var isOutputTerminal: Bool { get }
     func write(_ text: String, to stream: ConsoleStream)
 }
 
@@ -20,7 +27,15 @@ public extension Console {
 }
 
 public final class StandardConsole: Console {
-    public init() {}
+    public let isOutputTerminal: Bool
+
+    public init() {
+        #if canImport(Darwin)
+        isOutputTerminal = isatty(STDOUT_FILENO) != 0
+        #else
+        isOutputTerminal = isatty(STDOUT_FILENO) != 0
+        #endif
+    }
 
     public func write(_ text: String, to stream: ConsoleStream) {
         guard let data = text.data(using: .utf8) else { return }
@@ -38,11 +53,13 @@ internal final class QuietConsole: Console {
     private let underlying: any Console
     private let suppressStdout: Bool
     private let suppressStderr: Bool
+    let isOutputTerminal: Bool
 
     internal init(underlying: any Console, suppressStdout: Bool, suppressStderr: Bool) {
         self.underlying = underlying
         self.suppressStdout = suppressStdout
         self.suppressStderr = suppressStderr
+        self.isOutputTerminal = underlying.isOutputTerminal
     }
 
     internal func write(_ text: String, to stream: ConsoleStream) {

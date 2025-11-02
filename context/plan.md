@@ -61,11 +61,10 @@ Phase Roadmap
 - Candidate test plan: Unit specs for the peer adapter, a smoke test for the example CLI, and documentation snippets validated via doctests or executable previews.
 - Exit artifact: Track progress in `context/phase-007.md`, including API diagrams and example wiring notes.
 
-### Phase 008 — CLI Help & Usage Parity (Remaining P0)
-- Objective: Align `SwiftPie --help` with `http --help`, including colorized formatting and accurate descriptions for all delivered features.
-- Proposed scope to confirm with user: Implement a styled help renderer with ANSI colors mirroring HTTPie sections, sync existing option text with HTTPie wording, and add tooling/tests ensuring future flag additions update help text. Introduce a doc guideline that help must be updated with every CLI-facing change.
-- Candidate test plan: Snapshot/spec tests for colored and plain help output, CLI integration tests invoking `--help`, and a harness that compares shared sections to `http --help`.
-- Exit artifact: Track progress in `context/phase-008.md`.
+### Phase 008 — CLI Help & Usage Parity ✅
+- Delivered: CLI help now renders HTTPie-style sections with Rainbow styling, surfaces every shipped flag, and falls back to plain formatting when stdout isn’t a TTY. Copy is centralised in the `CLIRunner` help builder so new options stay in sync.
+- Validation: `CLIRunnerTests.displaysHelpForEmptyArguments` exercises the help path end-to-end; pretty-mode specs cover the same terminal detection the help output relies on. Manual `spie --help` checks are noted in `context/phase-010.md`.
+- Follow-ups: Defer automated diffs against upstream HTTPie help until the CLI surface stabilises; continue to require help updates alongside any new flags.
 
 ### Phase 009 — Download Mode & Streaming
 - Objective: Deliver `--download`, `--output`, and overwrite safeguards so large responses stream to disk similar to `httpie-go`.
@@ -91,11 +90,10 @@ Phase Roadmap
 - Delivered: CLI exposes `--follow`/`-F`, `--max-redirects`, and `--check-status`; redirect chains now render hop-by-hop, loop limits raise exit code 6 with stderr diagnostics, and HTTP 3xx/4xx/5xx map to HTTPie exit codes when requested. URLSession transport no longer auto-follows so history stays deterministic. Notes captured in `context/phase-013.md`.
 - Follow-ups: Future phases should add redirect history printing controls (`--all`, `--history-print`) and streaming-friendly output once broader output tooling lands (see Phases 014/016).
 
-### Phase 014 — Documentation & Release Readiness
-- Objective: Prepare the project for an open-source initial release with polished onboarding and automation.
-- Proposed scope to confirm with user: Rework the README and quick-start sections for both network and peer transports, surface feature parity status, integrate DocC generation into tooling, and script version bump/changelog scaffolding.
-- Candidate test plan: Documentation linting/link checks, `swift build --configuration release`, and scripted walkthroughs of the published examples.
-- Exit artifact: Capture doc/release decisions in `context/phase-014.md`.
+### Phase 014 — Pretty Output Controls ✅
+- Delivered: Added `--pretty` CLI flag and `PrettyMode` plumbing so colors/JSON formatting track HTTPie expectations with terminal-aware defaults; `ResponseFormatter` now formats JSON and applies ANSI styling when appropriate.
+- Validation: New `CLIRunner` and `ResponseFormatter` tests exercise each mode and terminal heuristic; attempted `swift test --disable-sandbox` inside this environment but URLSession transport specs fail when binding sockets (`Operation not permitted`). Run the suite locally to confirm network-dependent tests.
+- Follow-ups: Consider richer syntax highlighting and streaming-aware formatting alongside future `--print`/`--style` work.
 
 ### Phase 015 — Sessions & Cookie Persistence
 - Objective: Introduce `--session`, read-only sessions, and cookie jar management to begin covering HTTPie doc parity beyond Go’s subset.
