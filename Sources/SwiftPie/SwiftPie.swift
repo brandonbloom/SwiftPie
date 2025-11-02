@@ -82,6 +82,12 @@ public enum SwiftPie {
     }
 }
 
+private enum QuietLevel {
+    case none
+    case quiet
+    case veryQuiet
+}
+
 private struct ParsedCLIOptions {
     var showHelp: Bool
     var arguments: [String]
@@ -100,6 +106,7 @@ private struct ParsedCLIOptions {
     var followRedirects: Bool
     var maxRedirects: Int?
     var checkStatus: Bool
+    var quietLevel: QuietLevel
 }
 
 private enum AuthType {
@@ -141,6 +148,7 @@ private struct OptionParser {
         var followRedirects = false
         var maxRedirects: Int?
         var checkStatus = false
+        var quietLevel: QuietLevel = .none
 
         func setBodyMode(_ mode: RequestPayload.BodyMode, optionName: String) throws {
             if let existing = bodyOptionName, existing != optionName {
@@ -193,6 +201,14 @@ private struct OptionParser {
                         continue
                     case "-I", "--ignore-stdin":
                         ignoreStdin = true
+                        index += 1
+                        continue
+                    case "-q", "--quiet":
+                        quietLevel = .quiet
+                        index += 1
+                        continue
+                    case "-qq":
+                        quietLevel = .veryQuiet
                         index += 1
                         continue
                     case "-j", "--json":
@@ -345,7 +361,8 @@ private struct OptionParser {
             forceJSONAccept: forceJSONAccept,
             followRedirects: followRedirects,
             maxRedirects: maxRedirects,
-            checkStatus: checkStatus
+            checkStatus: checkStatus,
+            quietLevel: quietLevel
         )
     }
 
@@ -560,6 +577,27 @@ private struct CLIRunner<Transport: RequestTransport> {
                 return ExitCode.success.rawValue
             }
 
+            // Wrap console with quiet console if needed
+            let effectiveConsole: any Console
+            switch options.quietLevel {
+            case .none:
+                effectiveConsole = context.console
+            case .quiet:
+                // Suppress stdout, keep stderr for errors
+                effectiveConsole = QuietConsole(
+                    underlying: context.console,
+                    suppressStdout: true,
+                    suppressStderr: false
+                )
+            case .veryQuiet:
+                // Suppress both stdout and stderr
+                effectiveConsole = QuietConsole(
+                    underlying: context.console,
+                    suppressStdout: true,
+                    suppressStderr: true
+                )
+            }
+
             if options.authTypeWasExplicit && !options.authProvided {
                 throw CLIOptionError.authTypeRequiresAuth
             }
@@ -622,9 +660,9 @@ private struct CLIRunner<Transport: RequestTransport> {
             )
 
             let formatted = ResponseFormatter().format(chain.responses)
-            context.console.out(formatted)
+            effectiveConsole.out(formatted)
             if let error = chain.error {
-                context.console.error("error: \(error.cliDescription)\n")
+                effectiveConsole.error("error: \(error.cliDescription)\n")
                 return error.exitCode.rawValue
             }
 
@@ -639,7 +677,7 @@ private struct CLIRunner<Transport: RequestTransport> {
             )
 
             if let message = statusFailureMessage(for: exit, status: finalResponse.response.status) {
-                context.console.error("http error: \(message)\n")
+                effectiveConsole.error("http error: \(message)\n")
             }
 
             return exit.rawValue
@@ -1054,6 +1092,11 @@ private struct CLIRunner<Transport: RequestTransport> {
 
         lines.append(heading("Input & Prompts"))
         lines.append(optionLine(flags: "-I, --ignore-stdin", description: "Skip reading stdin and disable interactive password prompts."))
+        lines.append("")
+
+        lines.append(heading("Output Control"))
+        lines.append(optionLine(flags: "-q, --quiet", description: "Suppress output (response body and headers); show errors only."))
+        lines.append(optionLine(flags: "-qq", description: "Very quiet mode; suppress all output including errors."))
         lines.append("")
 
         lines.append(heading("Help"))

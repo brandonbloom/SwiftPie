@@ -32,3 +32,29 @@ public final class StandardConsole: Console {
         }
     }
 }
+
+/// Console wrapper that suppresses output based on quiet level
+internal final class QuietConsole: Console {
+    private let underlying: any Console
+    private let suppressStdout: Bool
+    private let suppressStderr: Bool
+
+    internal init(underlying: any Console, suppressStdout: Bool, suppressStderr: Bool) {
+        self.underlying = underlying
+        self.suppressStdout = suppressStdout
+        self.suppressStderr = suppressStderr
+    }
+
+    internal func write(_ text: String, to stream: ConsoleStream) {
+        switch stream {
+        case .standardOutput:
+            if !suppressStdout {
+                underlying.write(text, to: stream)
+            }
+        case .standardError:
+            if !suppressStderr {
+                underlying.write(text, to: stream)
+            }
+        }
+    }
+}
