@@ -140,7 +140,9 @@ final class NIOHTTPTestServer {
             .childChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
             .childChannelOption(ChannelOptions.socketOption(.tcp_nodelay), value: 1)
             .childChannelInitializer { channel in
-                channel.pipeline.configureHTTPServerPipeline().flatMap {
+                channel.pipeline.addHandler(ServerLifecycleHandler()).flatMap {
+                    channel.pipeline.configureHTTPServerPipeline()
+                }.flatMap {
                     channel.pipeline.addHandler(HTTPRequestHandler(router: router))
                 }
             }
@@ -162,6 +164,7 @@ final class NIOHTTPTestServer {
         )
 
         router.baseURL = baseURL
+        print("HTTP test server listening on", baseURL)
         return server
     }
 
@@ -375,6 +378,7 @@ final class HTTPRequestHandler: ChannelInboundHandler {
             bodyBuffer = nil
 
             let captured = CapturedRequest.make(from: head, bodyBuffer: &buffer)
+            print("HTTP test server received:", head.uri)
             let response = router.handle(request: captured, head: head)
             _ = write(response, requestHead: head, context: context)
         }
@@ -410,9 +414,33 @@ final class HTTPRequestHandler: ChannelInboundHandler {
 
         return context.writeAndFlush(wrapOutboundOut(.end(nil)))
     }
+
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
+        print("HTTP test server error:", error)
+        context.close(promise: nil)
+    }
 }
 
 extension HTTPRequestHandler: @unchecked Sendable {}
+
+private final class ServerLifecycleHandler: ChannelInboundHandler {
+    typealias InboundIn = HTTPServerRequestPart
+
+    func channelActive(context: ChannelHandlerContext) {
+        print("HTTP test server channel active:", context.channel.remoteAddress ?? "unknown")
+        context.fireChannelActive()
+    }
+
+    func channelInactive(context: ChannelHandlerContext) {
+        print("HTTP test server channel inactive:", context.channel.remoteAddress ?? "unknown")
+        context.fireChannelInactive()
+    }
+
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
+        print("HTTP test server lifecycle error:", error)
+        context.close(promise: nil)
+    }
+}
 
 // MARK: - Request construction
 

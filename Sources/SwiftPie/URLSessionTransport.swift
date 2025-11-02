@@ -30,9 +30,11 @@ public final class URLSessionTransport: RequestTransport {
         config.httpShouldUsePipelining = true
 #endif
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
+#if canImport(Darwin)
         config.httpCookieAcceptPolicy = .never
         config.httpShouldSetCookies = false
         config.httpAdditionalHeaders = [:]
+#endif
 
         if config.timeoutIntervalForRequest <= 0 {
             config.timeoutIntervalForRequest = 60
