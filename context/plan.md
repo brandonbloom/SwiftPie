@@ -19,47 +19,35 @@ Phase Roadmap
 - Outcome: SwiftPM workspace now includes `SwiftPie` and `SwiftPieCLI`, a placeholder `SwiftPie.main` that terminates with the computed exit code, and a smoke test script (`scripts/smoke-cli.sh`). Details captured in `context/phase-001.md`.
 - Follow-ups: None pending before Phase 002; CLI exits successfully and tooling is ready for request-parsing work.
 
-### Phase 002 — Request Parsing and HTTP Request Construction
-- Objective: Finish the end-to-end request builder that turns CLI arguments into a validated HTTP request payload.
-- In-progress scope:
-  - ✅ Core parsing helpers for verbs, query args, shorthands, and localhost normalization (ported into `RequestParser` with Swift Testing specs).
-  - 🔜 Extend coverage for remaining HTTPie shorthands (file embeds, raw JSON/file references, duplicate headers/data arrays) and map to a richer request model compatible with `swift-http-types`.
-  - 🔜 Surface validation diagnostics (unknown separators, invalid URLs, mutually exclusive flags) through `SwiftPieCLI` with non-zero exit codes and stderr output.
-  - 🔜 Bridge the parsed request into an internal representation that Phase 003 can hand to the transport layer.
-- Candidate test plan: Expand unit specs for each shorthand permutation, add CLI-level tests that execute `SwiftPie` via the Testing process APIs, and capture stderr/exit codes for invalid inputs.
-- Exit artifact: Append findings and review notes to `context/phase-002.md`.
+### Phase 002 — Request Parsing and HTTP Request Construction ✅
+- Delivered: CLI argument parsing now runs through `RequestParser` and `RequestBuilder`, producing `HTTPRequest` payloads compatible with `swift-http-types` and surfacing diagnostics on stderr with `EX_USAGE` exits. Unit coverage exercises HTTPie shorthands (escaped separators, file embeds, duplicate headers/data arrays), localhost normalization, and method inference.
+- Follow-ups: Keep newly filed parity gaps (#2 `=@`, #18 escaped separators) in scope as regression tests while we triage the remaining parser backlog.
+- Exit artifact: `context/phase-002.md`.
 
-### Phase 003 — Transport Hook & Response Handling
-- Objective: Define a transport abstraction that consumes `RequestPayload`, execute requests against a fake transport, and render responses with HTTPie-style formatting.
-- Proposed scope to confirm with user: Introduce a RoundTripper-like protocol fed by the CLI’s `requestSink`, supply in-memory/fake transport implementations for tests, and build response/body formatting (status line, headers, color/pretty toggles placeholder).
-- Candidate test plan: Use fake transports to simulate success/error/timeout scenarios, snapshot assertions for formatted output, and verify stderr/exit behavior for transport failures.
-- Exit artifact: Document decisions/tests in `context/phase-003.md`.
+### Phase 003 — Transport Hook & Response Handling ✅
+- Delivered: Introduced the `RequestTransport` protocol with fake implementations for tests, added `ResponseFormatter`, and wired the CLI to render HTTPie-style status lines/headers/bodies with proper exit-code mapping for transport failures. `swift test` covers success, client/server error, and transport-error formatting paths.
+- Follow-ups: Pretty/style toggles remain in later phases; ensure new output flags exercised in Phase 014/016 reuse this formatter.
+- Exit artifact: `context/phase-003.md`.
 
-### Phase 004 — Local Test Server
-- Objective: Provide a deterministic HTTP target that runs inside the test suite so transport/integration tests never reach the public internet.
-- Proposed scope to confirm with user: Stand up a lightweight server on top of SwiftNIO (matching Vapor’s stack) exposing the core endpoints we need immediately (`/get`, `/post`, `/headers`, `/status/{code}`, redirects, cookies). Package it so tests can start/stop it on demand and share helpers for request assertions. Defer TLS and streaming/timeout endpoints to later phases.
-- Candidate test plan: Unit-test the handlers directly, furnish integration helpers that run against the in-process server, and confirm we can simulate success, client/server errors, redirects, and cookie handling without flakiness. Note follow-ups for TLS/streaming coverage once those endpoints arrive.
-- Exit artifact: Capture setup instructions, endpoints, and extension guidelines in `context/phase-004.md`.
+### Phase 004 — Local Test Server ✅
+- Delivered: Added the SwiftNIO-backed `SwiftPieTestSupport` server helpers plus httpbin-style endpoints (`/get`, `/post`, `/headers`, `/status/<code>`, redirects, cookies) and request-recording utilities. Integration tests run entirely in-process via `withTestServer`.
+- Follow-ups: Chunked streaming, delay endpoints, and TLS fixtures remain open for Phases 009 and 005 follow-ups.
+- Exit artifact: `context/phase-004.md`.
 
-### Phase 005 — Real Network Transport
-- Objective: Wire the transport protocol into a production HTTP client implementation.
-- Proposed scope to confirm with user: Choose a concrete client (`URLSession`, `AsyncHTTPClient`, etc.), support streaming bodies, TLS/custom trust hooks, and map metadata cleanly between layers. Expand the local test server as needed (TLS certs, streaming endpoints) to exercise these behaviors.
-- Candidate test plan: Integration tests hitting the local test server validating verbs, headers, payload types, redirects, and error propagation; retain fake transport support for deterministic tests.
-- Exit artifact: Capture architecture decisions in `context/phase-005.md`.
-- ✅ `URLSessionTransport` now powers the default CLI context with JSON/form/multipart body support and response decoding. Network error propagation and CLI integration are covered by new tests (`URLSessionTransportTests`, updated `swift test` run on 2025-10-31).
-- 🔜 Add TLS fixtures, streaming uploads/downloads, and expose configuration knobs (timeouts, proxies) through the CLI once scoped.
+### Phase 005 — Real Network Transport ✅
+- Delivered: Replaced the placeholder transport with `URLSessionTransport`, bridging multipart/JSON/form encoding to the network layer, normalising responses through `HTTPTypes`, and integrating the transport into the CLI. Added dedicated `URLSessionTransportTests` covering happy paths and network failures.
+- Follow-ups: Add TLS fixtures, streaming uploads/downloads, and expose configuration knobs (timeouts, proxies) through the CLI when we extend Phase 009/016.
+- Exit artifact: `context/phase-005.md`.
 
-### Phase 006 — Authentication & Core Flags (Go Parity)
-- Objective: Implement the authentication, verification, and timeout switches shipped by `httpie-go` so the CLI reaches baseline feature parity.
-- Proposed scope to confirm with user: Support `-a/--auth` with prompt fallback, `--auth-type=bearer`, `--verify`, `--timeout`, `--http1`, and `--ignore-stdin` behaviours aligned with Go.
-- Candidate test plan: Unit tests for credential parsing and option validation, CLI integration tests covering prompts/stdin handling and exit codes.
-- Exit artifact: Track progress in `context/phase-006.md`.
+### Phase 006 — Authentication & Core Flags (Go Parity) ✅
+- Delivered: Added `-a/--auth`, `--auth-type`, `--timeout`, `--verify`, `--http1`, and `--ignore-stdin`. Password prompts now disable terminal echo, transport options flow through `URLSessionTransport`, and CLI tests cover auth headers, prompt failure paths, and validation.
+- Follow-ups: Extend TLS verification to accept CA bundle paths and revisit advanced auth schemes in later parity phases.
+- Exit artifact: `context/phase-006.md`.
 
-### Phase 007 — Peer Library & Example CLI
-- Objective: Deliver the reusable peer-mode workflow described in `context/swiftpie.md` and showcase it with a Vapor-backed example that reuses the in-process test server responders.
-- Proposed scope to confirm with user: Define the public API for embedding responders (swift-http-types based) and create an example executable (`Examples/PeerDemo` or similar) that runs the test server endpoints in peer mode.
-- Candidate test plan: Unit specs for the peer adapter, a smoke test for the example CLI, and documentation snippets validated via doctests or executable previews.
-- Exit artifact: Track progress in `context/phase-007.md`, including API diagrams and example wiring notes.
+### Phase 007 — Peer Library & Example CLI ✅
+- Delivered: Shipped `PeerTransport` and supporting helpers for in-process responders, refactored test server responders for reuse, added `PeerDemo` plus docs, and extended smoke tests to cover both executables.
+- Follow-ups: Coordinate future transport capability warnings (Phase 017) so peer mode advertises unsupported flags clearly.
+- Exit artifact: `context/phase-007.md`, including API diagrams and example wiring notes.
 
 ### Phase 008 — CLI Help & Usage Parity ✅
 - Delivered: CLI help now renders HTTPie-style sections with Rainbow styling, surfaces every shipped flag, and falls back to plain formatting when stdout isn’t a TTY. Copy is centralised in the `CLIRunner` help builder so new options stay in sync.
@@ -72,11 +60,10 @@ Phase Roadmap
 - Candidate test plan: Transport unit specs covering chunked transfers and interrupted streams, integration tests saving responses to temporary directories (including overwrite/permission failures), and CLI assertions validating stdout/stderr separation plus exit codes.
 - Exit artifact: Track progress in `context/phase-009.md`.
 
-### Phase 010 — CLI Help Colorization
-- Objective: Adopt Rainbow so the default `spie --help` output ships with ANSI styling consistent with HTTPie.
-- Proposed scope to confirm with user: Add Rainbow as a dependency, teach the CLI help generator to emit colored sections/flags, and keep wording aligned with the current help copy.
-- Candidate test plan: Manual verification of the help text in a color-capable terminal; no automated assertions planned because the output mirrors the literal source.
-- Exit artifact: Track decisions and follow-ups in `context/phase-010.md`.
+### Phase 010 — CLI Help Colorization ✅
+- Delivered: Adopted Rainbow, refactored the help renderer to apply ANSI styling that mirrors HTTPie’s headings/flag colors, and kept non-TTY output plaintext. Manual `spie --help` runs verified readability across themes.
+- Follow-ups: Consider future flags for forcing colors off/on once broader response colorization lands.
+- Exit artifact: `context/phase-010.md`.
 
 ### Phase 011 — Method & URL Parity ✅
 - Delivered: Parser now accepts arbitrary method tokens (with heuristics that keep GET/POST inference intact), localhost shorthands remain intact under a configurable default scheme, and the CLI exposes a `--ssl` switch that toggles the implicit scheme to `https://`. Help text nudges users toward either explicit protocols or the new switch, matching the agreed scope without reviving the `https` alias. Details live in `context/phase-011.md`.
