@@ -1,3 +1,6 @@
+#if canImport(CoreFoundation)
+import CoreFoundation
+#endif
 import Foundation
 
 public struct RequestParserOptions: Equatable, Sendable {

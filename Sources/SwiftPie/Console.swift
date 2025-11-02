@@ -1,9 +1,9 @@
 import Foundation
 
 #if canImport(Darwin)
-import Darwin
+@preconcurrency import Darwin
 #else
-import Glibc
+@preconcurrency import Glibc
 #endif
 
 public enum ConsoleStream {

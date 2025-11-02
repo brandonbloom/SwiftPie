@@ -1,3 +1,9 @@
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(CoreFoundation)
+import CoreFoundation
+#endif
 import Foundation
 import HTTPTypes
 
@@ -5,16 +11,24 @@ public final class URLSessionTransport: RequestTransport {
     private let baseConfiguration: URLSessionConfiguration
     private let secureSession: URLSession
     private let secureDelegate: SecureSessionDelegate
+#if canImport(Darwin)
     private var insecureSession: URLSession?
     private var insecureDelegate: InsecureSessionDelegate?
+#endif
     private let defaultTimeout: TimeInterval
+#if canImport(Darwin)
     private let sessionLock = NSLock()
+#endif
 
     public init(configuration: URLSessionConfiguration = .ephemeral) {
         let baseConfiguration = (configuration.copy() as? URLSessionConfiguration) ?? configuration
         let config = baseConfiguration
+#if canImport(Darwin)
         config.waitsForConnectivity = false
+#endif
+#if canImport(Darwin)
         config.httpShouldUsePipelining = true
+#endif
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.httpCookieAcceptPolicy = .never
         config.httpShouldSetCookies = false
@@ -32,7 +46,9 @@ public final class URLSessionTransport: RequestTransport {
 
     deinit {
         secureSession.invalidateAndCancel()
+#if canImport(Darwin)
         insecureSession?.invalidateAndCancel()
+#endif
     }
 
     public func send(_ payload: RequestPayload, options: TransportOptions) throws -> ResponsePayload {
@@ -96,6 +112,7 @@ public final class URLSessionTransport: RequestTransport {
         case .enforced:
             return secureSession
         case .disabled:
+#if canImport(Darwin)
             sessionLock.lock()
             defer { sessionLock.unlock() }
 
@@ -109,6 +126,9 @@ public final class URLSessionTransport: RequestTransport {
             insecureSession = session
             insecureDelegate = delegate
             return session
+#else
+            return secureSession
+#endif
         }
     }
 
@@ -278,6 +298,7 @@ private final class SecureSessionDelegate: NSObject, URLSessionTaskDelegate {
     }
 }
 
+#if canImport(Darwin)
 private final class InsecureSessionDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
     func urlSession(
         _ session: URLSession,
@@ -302,9 +323,11 @@ private final class InsecureSessionDelegate: NSObject, URLSessionDelegate, URLSe
         completionHandler(nil)
     }
 }
+#endif
 
 private extension HTTPURLResponse {
     var stringEncoding: String.Encoding? {
+#if canImport(Darwin)
         guard let encodingName = textEncodingName else {
             return nil
         }
@@ -316,5 +339,8 @@ private extension HTTPURLResponse {
 
         let rawValue = CFStringConvertEncodingToNSStringEncoding(cfEncoding)
         return String.Encoding(rawValue: rawValue)
+#else
+        return nil
+#endif
     }
 }

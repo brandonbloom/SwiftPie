@@ -1,7 +1,7 @@
 #if canImport(Darwin)
-import Darwin
+@preconcurrency import Darwin
 #else
-import Glibc
+@preconcurrency import Glibc
 #endif
 
 import SwiftPie

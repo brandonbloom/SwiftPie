@@ -1,9 +1,12 @@
 #if canImport(Darwin)
-import Darwin
+@preconcurrency import Darwin
 #else
-import Glibc
+@preconcurrency import Glibc
 #endif
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Foundation
 import HTTPTypes
 import Rainbow

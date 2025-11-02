@@ -21,7 +21,7 @@ Phase Roadmap
 
 ### Phase 002 — Request Parsing and HTTP Request Construction ✅
 - Delivered: CLI argument parsing now runs through `RequestParser` and `RequestBuilder`, producing `HTTPRequest` payloads compatible with `swift-http-types` and surfacing diagnostics on stderr with `EX_USAGE` exits. Unit coverage exercises HTTPie shorthands (escaped separators, file embeds, duplicate headers/data arrays), localhost normalization, and method inference.
-- Follow-ups: Keep newly filed parity gaps (#2 `=@`, #18 escaped separators) in scope as regression tests while we triage the remaining parser backlog.
+- Follow-ups: Track escaping parity via GH-18 (separator edge cases) as we round out the remaining parser backlog.
 - Exit artifact: `context/phase-002.md`.
 
 ### Phase 003 — Transport Hook & Response Handling ✅
@@ -41,7 +41,7 @@ Phase Roadmap
 
 ### Phase 006 — Authentication & Core Flags (Go Parity) ✅
 - Delivered: Added `-a/--auth`, `--auth-type`, `--timeout`, `--verify`, `--http1`, and `--ignore-stdin`. Password prompts now disable terminal echo, transport options flow through `URLSessionTransport`, and CLI tests cover auth headers, prompt failure paths, and validation.
-- Follow-ups: Extend TLS verification to accept CA bundle paths and revisit advanced auth schemes in later parity phases.
+- Follow-ups: Extend TLS verification to accept CA bundle paths, add `--ignore-netrc` (GH-5), and revisit advanced auth schemes in later parity phases.
 - Exit artifact: `context/phase-006.md`.
 
 ### Phase 007 — Peer Library & Example CLI ✅
@@ -58,6 +58,7 @@ Phase Roadmap
 - Objective: Deliver `--download`, `--output`, and overwrite safeguards so large responses stream to disk similar to `httpie-go`.
 - Proposed scope to confirm with user: Extend `RequestTransport` with streaming body support and progress hooks, add a file writer that uses temp files plus atomic moves, wire CLI parsing/rendering for the new flags, and expand the in-process server with chunked/large-payload fixtures.
 - Candidate test plan: Transport unit specs covering chunked transfers and interrupted streams, integration tests saving responses to temporary directories (including overwrite/permission failures), and CLI assertions validating stdout/stderr separation plus exit codes.
+- Targets: GH-6 (`--output`), GH-7 (`--download`), GH-9 (`--continue`), GH-22 (`--stream`).
 - Exit artifact: Track progress in `context/phase-009.md`.
 
 ### Phase 010 — CLI Help Colorization ✅
@@ -71,7 +72,7 @@ Phase Roadmap
 
 ### Phase 012 — Request Body Defaults & CLI Flags ✅
 - Delivered: JSON is now the default encoding for `key=value` items, with `--form` and `--raw` flipping to URL-encoded and pass-through bodies. Parser/builder support `=@file`, `:=@file`, header `:@file`, and `@-` stdin shorthands; transports respect the selected mode, and the CLI auto-emits HTTPie’s JSON `Accept` header unless callers override it. Help/docs updated per scope, and coverage recorded in `context/phase-012.md`.
-- Follow-ups: Monitor stdin-heavy workflows for performance (streaming might be preferable in future) and revisit multipart defaulting when we add richer file metadata.
+- Follow-ups: Monitor stdin-heavy workflows for performance (streaming might be preferable in future), revisit multipart defaulting when we add richer file metadata, and expose custom boundaries via `--boundary` (GH-17).
 
 ### Phase 013 — Redirects & Status Controls ✅
 - Delivered: CLI exposes `--follow`/`-F`, `--max-redirects`, and `--check-status`; redirect chains now render hop-by-hop, loop limits raise exit code 6 with stderr diagnostics, and HTTP 3xx/4xx/5xx map to HTTPie exit codes when requested. URLSession transport no longer auto-follows so history stays deterministic. Notes captured in `context/phase-013.md`.
@@ -92,6 +93,7 @@ Phase Roadmap
 - Objective: Layer on advanced HTTPie behaviors (verbose mode, streaming output formatting, colors) and stabilize for release.
 - Proposed scope to confirm with user: Additional CLI flags (verbose, offline, pretty-print), UX refinements, documentation, and packaging/distribution.
 - Candidate test plan: Regression suite covering critical flags, golden-file output comparisons, documentation linting, and smoke tests across macOS targets.
+- Targets: GH-1/GH-14 (`--unsorted`/`--sorted`), GH-20 (`--all`), GH-13 (`--print` family), GH-4 (`--style`), GH-15 (`--format-options`), GH-16 (`--response-mime`), GH-12 (`--response-charset`), GH-21 (help completeness), GH-23 (`--version` flag).
 - Exit artifact: Summarize outcomes in `context/phase-016.md`.
 
 ### Phase 017 — Transport Capabilities & Peer Parity (Queued P0)
@@ -99,6 +101,13 @@ Phase Roadmap
 - Scope to confirm: Define a `TransportCapabilities` surface for transports, push warnings through the CLI when options are ignored, wire peer-mode timeouts via Task cancellation, and update docs/help to spell out peer-specific differences.
 - Test plan: Unit tests for capability negotiation, peer transport timeout exercises, and CLI integration coverage ensuring warnings appear (and options still function) when capabilities differ.
 - Exit artifact: Track outcomes in `context/phase-017.md`, including guidance on when unsupported options should escalate to errors.
+
+### Phase 018 — Linux Packaging & CI
+- Objective: Finish the cross-platform story so SwiftPie builds, tests, and ships cleanly on Linux alongside macOS.
+- Proposed scope to confirm with user: Audit dependencies for Linux compatibility, wire up CI runners, document toolchain requirements, and produce release artifacts or install scripts targeting common distros.
+- Candidate test plan: Stand up Linux CI (swift test + smoke invocations), run packaging scripts locally in a container, and verify CLI behaviours that depend on Darwin APIs gracefully degrade or are guarded.
+- Targets: GH-27 (Linux support).
+- Exit artifact: Capture findings and distro-specific notes in `context/phase-018.md`.
 
 Plan Maintenance
 ----------------
