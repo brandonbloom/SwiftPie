@@ -46,7 +46,7 @@ Phase Roadmap
 
 ### Phase 007 — Peer Library & Example CLI ✅
 - Delivered: Shipped `PeerTransport` and supporting helpers for in-process responders, refactored test server responders for reuse, added `PeerDemo` plus docs, and extended smoke tests to cover both executables.
-- Follow-ups: Coordinate future transport capability warnings (Phase 017) so peer mode advertises unsupported flags clearly.
+- Follow-ups: Coordinate future transport capability warnings (Phase 015) so peer mode advertises unsupported flags clearly.
 - Exit artifact: `context/phase-007.md`, including API diagrams and example wiring notes.
 
 ### Phase 008 — CLI Help & Usage Parity ✅
@@ -68,7 +68,7 @@ Phase Roadmap
 
 ### Phase 011 — Method & URL Parity ✅
 - Delivered: Parser now accepts arbitrary method tokens (with heuristics that keep GET/POST inference intact), localhost shorthands remain intact under a configurable default scheme, and the CLI exposes a `--ssl` switch that toggles the implicit scheme to `https://`. Help text nudges users toward either explicit protocols or the new switch, matching the agreed scope without reviving the `https` alias. Details live in `context/phase-011.md`.
-- Follow-ups: Monitor bare-host heuristics and fold transport-capability warnings into the upcoming Phase 017 so peer mode can communicate unsupported options.
+- Follow-ups: Monitor bare-host heuristics and fold transport-capability warnings into the upcoming Phase 015 so peer mode can communicate unsupported options.
 
 ### Phase 012 — Request Body Defaults & CLI Flags ✅
 - Delivered: JSON is now the default encoding for `key=value` items, with `--form` and `--raw` flipping to URL-encoded and pass-through bodies. Parser/builder support `=@file`, `:=@file`, header `:@file`, and `@-` stdin shorthands; transports respect the selected mode, and the CLI auto-emits HTTPie’s JSON `Accept` header unless callers override it. Help/docs updated per scope, and coverage recorded in `context/phase-012.md`.
@@ -83,24 +83,24 @@ Phase Roadmap
 - Validation: New `CLIRunner` and `ResponseFormatter` tests exercise each mode and terminal heuristic; attempted `swift test --disable-sandbox` inside this environment but URLSession transport specs fail when binding sockets (`Operation not permitted`). Run the suite locally to confirm network-dependent tests.
 - Follow-ups: Consider richer syntax highlighting and streaming-aware formatting alongside future `--print`/`--style` work.
 
-### Phase 015 — Sessions & Cookie Persistence
+### Phase 015 — Pluggable Transports & SwiftNIO (Queued P0)
+- Objective: Deliver runtime-selectable HTTP transports so SwiftPie can exercise both FoundationNetworking and SwiftNIO on Darwin today and hit Linux parity without container friction, while keeping peer transports viable.
+- Scope to confirm with user: Introduce a transport registry/capability surface, ship a SwiftNIO-backed transport alongside the existing `URLSessionTransport`, ensure both compile on Darwin/Linux, add a `--transport={foundation|nio}` CLI flag with defaults/validation, and refactor peer transports to plug into the same capability model (static selection only).
+- Candidate test plan: Unit tests for capability negotiation/selection, integration tests that run the CLI against the in-process server using each transport on Darwin, peer transport smoke tests, and Linux build checks to catch compile-time gaps even if execution remains local for now.
+- Exit artifact: Track outcomes and follow-ups in `context/phase-015.md`, including documentation on selecting transports and any Linux-specific blockers.
+
+### Phase 016 — Sessions & Cookie Persistence
 - Objective: Introduce `--session`, read-only sessions, and cookie jar management to begin covering HTTPie doc parity beyond Go’s subset.
 - Proposed scope to confirm with user: Define session file format and storage locations, persist cookies/auth headers between runs, expose CLI flags/help text, and ensure peer mode stays deterministic without session bleed.
 - Candidate test plan: Integration tests that write/read session files across invocations (network and peer transports), unit specs for serialization edge cases, and CLI cases for read-only versus mutable sessions.
-- Exit artifact: Track progress in `context/phase-015.md`.
+- Exit artifact: Track progress in `context/phase-016.md`.
 
-### Phase 016 — Polish & Extended Parity
+### Phase 017 — Polish & Extended Parity
 - Objective: Layer on advanced HTTPie behaviors (verbose mode, streaming output formatting, colors) and stabilize for release.
 - Proposed scope to confirm with user: Additional CLI flags (verbose, offline, pretty-print), UX refinements, documentation, and packaging/distribution.
 - Candidate test plan: Regression suite covering critical flags, golden-file output comparisons, documentation linting, and smoke tests across macOS targets.
 - Targets: GH-1/GH-14 (`--unsorted`/`--sorted`), GH-20 (`--all`), GH-13 (`--print` family), GH-4 (`--style`), GH-15 (`--format-options`), GH-16 (`--response-mime`), GH-12 (`--response-charset`), GH-21 (help completeness), GH-23 (`--version` flag).
-- Exit artifact: Summarize outcomes in `context/phase-016.md`.
-
-### Phase 017 — Transport Capabilities & Peer Parity (Queued P0)
-- Objective: Introduce a capability model for transports so the CLI can warn on unsupported flags in peer mode and tighten behaviour around timeouts and protocol toggles.
-- Scope to confirm: Define a `TransportCapabilities` surface for transports, push warnings through the CLI when options are ignored, wire peer-mode timeouts via Task cancellation, and update docs/help to spell out peer-specific differences.
-- Test plan: Unit tests for capability negotiation, peer transport timeout exercises, and CLI integration coverage ensuring warnings appear (and options still function) when capabilities differ.
-- Exit artifact: Track outcomes in `context/phase-017.md`, including guidance on when unsupported options should escalate to errors.
+- Exit artifact: Summarize outcomes in `context/phase-017.md`.
 
 ### Phase 018 — Linux Packaging & CI
 - Objective: Finish the cross-platform story so SwiftPie builds, tests, and ships cleanly on Linux alongside macOS.

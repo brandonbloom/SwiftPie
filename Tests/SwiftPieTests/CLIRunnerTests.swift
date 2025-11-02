@@ -22,6 +22,7 @@ struct CLIRunnerTests {
         #expect(exitCode == 0)
         #expect(console.output.contains("Show this help message and exit."))
         #expect(console.output.contains("Positional Arguments"))
+        #expect(console.output.contains("--transport"))
         #expect(console.error.isEmpty)
     }
 
@@ -309,6 +310,69 @@ struct CLIRunnerTests {
         #expect(exitCode == Int(EX_USAGE))
         #expect(console.output.isEmpty)
         #expect(console.error.contains("invalid value for --pretty"))
+    }
+
+    @Test("Rejects unknown transport identifiers")
+    func rejectsUnknownTransportIdentifiers() {
+        let console = ConsoleRecorder()
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--transport=invalid", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput()
+            )
+        )
+
+        #expect(exitCode == Int(EX_USAGE))
+        #expect(console.output.isEmpty)
+        #expect(console.error.contains("invalid transport 'invalid'"))
+    }
+
+    @Test("Selects transport implementations via --transport")
+    func selectsTransportByIdentifier() {
+        let console = ConsoleRecorder()
+        let recorder = TransportSelectionRecorder()
+        let alphaID = TransportID("alpha")
+        let betaID = TransportID("beta")
+
+        let registry = TransportRegistry(
+            defaultID: alphaID,
+            descriptors: [
+                TransportDescriptor(
+                    id: alphaID,
+                    label: "Alpha",
+                    kind: .runtimeSelectable,
+                    capabilities: [],
+                    isSupported: { true },
+                    makeTransport: {
+                        AnyRequestTransport(StubTransport(identifier: "alpha", recorder: recorder))
+                    }
+                ),
+                TransportDescriptor(
+                    id: betaID,
+                    label: "Beta",
+                    kind: .runtimeSelectable,
+                    capabilities: [],
+                    isSupported: { true },
+                    makeTransport: {
+                        AnyRequestTransport(StubTransport(identifier: "beta", recorder: recorder))
+                    }
+                )
+            ]
+        )
+
+        let exitCode = SwiftPie.run(
+            arguments: ["spie", "--transport=beta", "https://example.com"],
+            context: CLIContext(
+                console: console,
+                input: NonInteractiveInput(),
+                transportRegistry: registry
+            )
+        )
+
+        #expect(exitCode == 0)
+        #expect(recorder.identifiers == ["beta"])
+        #expect(console.output.contains("HTTP/1.1 200 OK"))
     }
 
     @Test("Maps --check-status to HTTP-aware exit codes")
@@ -1276,6 +1340,41 @@ private final class ConsoleRecorder: Console {
         case .standardError:
             error.append(text)
         }
+    }
+}
+
+private final class TransportSelectionRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [String] = []
+
+    var identifiers: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+
+    func record(_ identifier: String) {
+        lock.lock()
+        storage.append(identifier)
+        lock.unlock()
+    }
+}
+
+private final class StubTransport: RequestTransport {
+    private let identifier: String
+    private let recorder: TransportSelectionRecorder
+
+    init(identifier: String, recorder: TransportSelectionRecorder) {
+        self.identifier = identifier
+        self.recorder = recorder
+    }
+
+    func send(_ payload: RequestPayload, options: TransportOptions) throws -> ResponsePayload {
+        recorder.record(identifier)
+        return ResponsePayload(
+            response: HTTPResponse(status: .ok),
+            body: .none
+        )
     }
 }
 

@@ -25,9 +25,9 @@ public enum SwiftPie {
     ///   - arguments: The raw command-line arguments, usually `CommandLine.arguments`.
     ///   - context: Custom CLI dependencies such as transports or parser defaults.
     /// - Returns: Never returns because it terminates the process with the exit code.
-    public static func main<Transport: RequestTransport>(
+    public static func main(
         arguments: [String],
-        context: CLIContext<Transport>
+        context: CLIContext
     ) -> Never {
         let exitCode = run(arguments: arguments, context: context)
         exit(Int32(exitCode))
@@ -35,13 +35,14 @@ public enum SwiftPie {
 
     /// Utility that executes the CLI flow using the default context.
     public static func run(arguments: [String]) -> Int {
-        run(arguments: arguments, context: CLIContext())
+        let context = CLIContext()
+        return run(arguments: arguments, context: context)
     }
 
     /// Utility that executes the CLI flow with a custom context.
-    public static func run<Transport: RequestTransport>(
+    public static func run(
         arguments: [String],
-        context: CLIContext<Transport>
+        context: CLIContext
     ) -> Int {
         var runner = CLIRunner(arguments: arguments, context: context)
         return runner.run()
@@ -77,9 +78,11 @@ public enum SwiftPie {
         parserOptions: RequestParserOptions = .default,
         responder: @escaping PeerResponder
     ) -> Int {
+        let peerRegistry = TransportRegistry(defaultID: .foundation, descriptors: [])
         let context = CLIContext(
             transport: PeerTransport(responder: responder),
-            parserOptions: parserOptions
+            parserOptions: parserOptions,
+            transportRegistry: peerRegistry
         )
         return run(arguments: arguments, context: context)
     }
@@ -111,6 +114,7 @@ private struct ParsedCLIOptions {
     var checkStatus: Bool
     var quietLevel: QuietLevel
     var prettyMode: PrettyMode?
+    var transportID: TransportID?
 }
 
 private enum AuthType {
@@ -156,6 +160,7 @@ private enum RawBodyInput: Equatable {
 
 private struct OptionParser {
     var arguments: [String]
+    var transportContext: TransportChoiceContext
 
     func parse() throws -> ParsedCLIOptions {
         var remaining: [String] = []
@@ -179,6 +184,7 @@ private struct OptionParser {
         var maxRedirects: Int?
         var checkStatus = false
         var quietLevel: QuietLevel = .none
+        var transportID: TransportID?
 
         func setBodyMode(_ mode: RequestPayload.BodyMode, optionName: String) throws {
             if let existing = bodyOptionName, existing != optionName {
@@ -353,6 +359,21 @@ private struct OptionParser {
                             followRedirects = true
                             index = nextIndex
                             continue
+                        case "--transport":
+                            let (value, nextIndex) = try consumeValue(
+                                inline: inlineValue,
+                                currentIndex: index,
+                                option: "--transport"
+                            )
+                            guard transportContext.hasChoices else {
+                                throw CLIOptionError.transportSelectionUnavailable
+                            }
+                            guard let resolved = transportContext.resolve(value) else {
+                                throw CLIOptionError.invalidTransportValue(value, transportContext.allowedValues)
+                            }
+                            transportID = resolved
+                            index = nextIndex
+                            continue
                         default:
                             throw CLIOptionError.unknownOption(argument)
                         }
@@ -402,7 +423,8 @@ private struct OptionParser {
             maxRedirects: maxRedirects,
             checkStatus: checkStatus,
             quietLevel: quietLevel,
-            prettyMode: prettyMode
+            prettyMode: prettyMode,
+            transportID: transportID
         )
     }
 
@@ -497,6 +519,8 @@ private enum CLIOptionError: Error {
     case invalidVerifyValue(String)
     case invalidPrettyValue(String)
     case invalidAuthType(String)
+    case invalidTransportValue(String, [String])
+    case transportSelectionUnavailable
     case authTypeRequiresAuth
     case passwordPromptUnavailable(PromptUnavailableReason)
     case passwordPromptCancelled
@@ -522,6 +546,14 @@ private extension CLIOptionError {
             return "invalid value for --pretty: '\(value)'"
         case .invalidAuthType(let type):
             return "unsupported auth type '\(type)'"
+        case .invalidTransportValue(let value, let available):
+            if available.isEmpty {
+                return "invalid transport '\(value)'"
+            }
+            let expected = available.joined(separator: "|")
+            return "invalid transport '\(value)'; expected one of {\(expected)}"
+        case .transportSelectionUnavailable:
+            return "transport selection is unavailable"
         case .authTypeRequiresAuth:
             return "--auth-type requires --auth"
         case .passwordPromptUnavailable(let reason):
@@ -543,36 +575,43 @@ private extension CLIOptionError {
     }
 }
 
-public struct CLIContext<Transport: RequestTransport> {
+public struct CLIContext {
     public var console: any Console
     public var input: any InputSource
-    public var transport: Transport
+    public var transport: AnyRequestTransport
     public var parserOptions: RequestParserOptions
+    public var transportRegistry: TransportRegistry
 
     public init(
         console: any Console = StandardConsole(),
         input: any InputSource = StandardInput(),
-        transport: Transport,
+        transportRegistry: TransportRegistry = .standard,
         parserOptions: RequestParserOptions = .default
     ) {
         self.console = console
         self.input = input
-        self.transport = transport
+        self.transportRegistry = transportRegistry
         self.parserOptions = parserOptions
-    }
-}
 
-public extension CLIContext where Transport == URLSessionTransport {
-    init(
+        if let transport = try? transportRegistry.makeDefaultTransport() {
+            self.transport = transport
+        } else {
+            self.transport = AnyRequestTransport(URLSessionTransport())
+        }
+    }
+
+    public init<Transport: RequestTransport>(
         console: any Console = StandardConsole(),
         input: any InputSource = StandardInput(),
-        transport: Transport = URLSessionTransport(),
-        parserOptions: RequestParserOptions = .default
+        transport: Transport,
+        parserOptions: RequestParserOptions = .default,
+        transportRegistry: TransportRegistry = .standard
     ) {
         self.console = console
         self.input = input
-        self.transport = transport
+        self.transport = AnyRequestTransport(transport)
         self.parserOptions = parserOptions
+        self.transportRegistry = transportRegistry
     }
 }
 
@@ -615,20 +654,62 @@ private enum ExitCode {
     }
 }
 
-private struct CLIRunner<Transport: RequestTransport> {
-    private let arguments: [String]
-    private var context: CLIContext<Transport>
+private struct TransportChoiceContext {
+    struct Choice {
+        let id: TransportID
+        let label: String
+    }
 
-    init(arguments: [String], context: CLIContext<Transport>) {
+    let defaultID: TransportID?
+    let choices: [Choice]
+
+    init(registry: TransportRegistry) {
+        let descriptors = registry.runtimeSelectableDescriptors()
+        self.choices = descriptors.map { Choice(id: $0.id, label: $0.label) }
+        self.defaultID = registry.resolveDefaultID()
+    }
+
+    var hasChoices: Bool {
+        !choices.isEmpty
+    }
+
+    var allowedValues: [String] {
+        choices.map { $0.id.rawValue }
+    }
+
+    var allowedValuesDescription: String {
+        allowedValues.joined(separator: "|")
+    }
+
+    func resolve(_ value: String) -> TransportID? {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return choices.first { $0.id.rawValue.lowercased() == normalized }?.id
+    }
+
+    func label(for id: TransportID) -> String? {
+        choices.first { $0.id == id }?.label
+    }
+}
+
+private struct CLIRunner {
+    private let arguments: [String]
+    private var context: CLIContext
+    private let transportChoices: TransportChoiceContext
+
+    init(arguments: [String], context: CLIContext) {
         self.arguments = arguments
         self.context = context
+        self.transportChoices = TransportChoiceContext(registry: context.transportRegistry)
     }
 
     mutating func run() -> Int {
         let userArguments = Array(arguments.dropFirst())
 
         do {
-            let options = try OptionParser(arguments: userArguments).parse()
+            let options = try OptionParser(
+                arguments: userArguments,
+                transportContext: transportChoices
+            ).parse()
 
             // Apply quiet mode by swapping the console early so downstream code
             // continues to interact with `context.console` as usual.
@@ -652,12 +733,33 @@ private struct CLIRunner<Transport: RequestTransport> {
             let prettyMode = resolvePrettyMode(explicit: options.prettyMode)
 
             if options.showHelp || options.arguments.isEmpty {
-                context.console.out(helpText)
+                context.console.out(helpText(choices: transportChoices))
                 return ExitCode.success.rawValue
             }
 
             if options.authTypeWasExplicit && !options.authProvided {
                 throw CLIOptionError.authTypeRequiresAuth
+            }
+
+            if let selectedTransportID = options.transportID {
+                do {
+                    context.transport = try context.transportRegistry.makeTransport(for: selectedTransportID)
+                } catch let error as TransportRegistryError {
+                    switch error {
+                    case .unknownTransport(let id):
+                        context.console.error("error: unknown transport '\(id)'\n")
+                        return ExitCode.usage.rawValue
+                    case .transportUnavailable(let id):
+                        context.console.error("error: transport '\(id)' is not available on this platform\n")
+                        return ExitCode.failure.rawValue
+                    case .noTransportsAvailable:
+                        context.console.error("error: no transports are available\n")
+                        return ExitCode.failure.rawValue
+                    }
+                } catch {
+                    context.console.error("error: failed to initialize transport '\(selectedTransportID.rawValue)': \(error.localizedDescription)\n")
+                    return ExitCode.failure.rawValue
+                }
             }
 
             var parserOptions = context.parserOptions
@@ -1095,7 +1197,7 @@ private struct CLIRunner<Transport: RequestTransport> {
     }
 
 
-    private var helpText: String {
+    private func helpText(choices: TransportChoiceContext) -> String {
         var lines: [String] = []
 
         lines.append(heading("SwiftPie"))
@@ -1148,6 +1250,20 @@ private struct CLIRunner<Transport: RequestTransport> {
         lines.append("")
 
         lines.append(heading("Transport"))
+        if choices.hasChoices {
+            let setDescription = choices.allowedValuesDescription
+            let defaultDescription: String
+            if let defaultID = choices.defaultID {
+                if let label = choices.label(for: defaultID) {
+                    defaultDescription = "\(defaultID.rawValue) (\(label))"
+                } else {
+                    defaultDescription = defaultID.rawValue
+                }
+            } else {
+                defaultDescription = "auto"
+            }
+            lines.append(optionLine(flags: "    --transport {\(setDescription)}", description: "Select the HTTP transport implementation (default: \(defaultDescription))."))
+        }
         lines.append(optionLine(flags: "    --timeout SEC", description: "Set the request timeout in seconds (must be positive)."))
         lines.append(optionLine(flags: "    --verify [BOOL]", description: "Set to false (or no/0) to disable TLS verification; defaults to true."))
         lines.append(optionLine(flags: "    --http1", description: "Force HTTP/1.1 for the request."))

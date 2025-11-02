@@ -23,6 +23,7 @@
 - [./phase-012.md](./phase-012.md) -- Phase 012 notes on request body defaults, CLI flags, and I/O expansion.
 - [./phase-013.md](./phase-013.md) -- Phase 013 notes on redirect handling, status exit codes, and CLI diagnostics.
 - [./phase-014.md](./phase-014.md) -- Phase 014 notes on CLI pretty-printing controls and color modes.
+- [./phase-015.md](./phase-015.md) -- Phase 015 plan for runtime-selectable transports and SwiftNIO integration.
 
 ## Submodules
 
