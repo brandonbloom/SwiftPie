@@ -233,7 +233,8 @@ public extension TransportRegistry {
         TransportRegistry(
             defaultID: .foundation,
             descriptors: [
-                .foundation()
+                .foundation(),
+                .nio()
             ]
         )
     }
@@ -264,6 +265,25 @@ private extension TransportDescriptor {
             },
             makeTransport: {
                 AnyRequestTransport(URLSessionTransport())
+            }
+        )
+    }
+
+    static func nio() -> TransportDescriptor {
+        let capabilities: TransportCapabilities = [
+            .supportsTLSVerificationToggle
+        ]
+
+        return TransportDescriptor(
+            id: .nio,
+            label: "SwiftNIO HTTP/1.1",
+            kind: .runtimeSelectable,
+            capabilities: capabilities,
+            isSupported: {
+                true
+            },
+            makeTransport: {
+                AnyRequestTransport(NIOHTTPTransport())
             }
         )
     }

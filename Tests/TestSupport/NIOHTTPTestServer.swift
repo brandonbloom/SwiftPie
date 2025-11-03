@@ -164,7 +164,6 @@ final class NIOHTTPTestServer {
         )
 
         router.baseURL = baseURL
-        print("HTTP test server listening on", baseURL)
         return server
     }
 
@@ -378,7 +377,6 @@ final class HTTPRequestHandler: ChannelInboundHandler {
             bodyBuffer = nil
 
             let captured = CapturedRequest.make(from: head, bodyBuffer: &buffer)
-            print("HTTP test server received:", head.uri)
             let response = router.handle(request: captured, head: head)
             _ = write(response, requestHead: head, context: context)
         }
@@ -416,7 +414,6 @@ final class HTTPRequestHandler: ChannelInboundHandler {
     }
 
     func errorCaught(context: ChannelHandlerContext, error: Error) {
-        print("HTTP test server error:", error)
         context.close(promise: nil)
     }
 }
@@ -427,17 +424,14 @@ private final class ServerLifecycleHandler: ChannelInboundHandler {
     typealias InboundIn = HTTPServerRequestPart
 
     func channelActive(context: ChannelHandlerContext) {
-        print("HTTP test server channel active:", context.channel.remoteAddress ?? "unknown")
         context.fireChannelActive()
     }
 
     func channelInactive(context: ChannelHandlerContext) {
-        print("HTTP test server channel inactive:", context.channel.remoteAddress ?? "unknown")
         context.fireChannelInactive()
     }
 
     func errorCaught(context: ChannelHandlerContext, error: Error) {
-        print("HTTP test server lifecycle error:", error)
         context.close(promise: nil)
     }
 }

@@ -103,3 +103,11 @@ This phase introduces runtime-selectable transports so FoundationNetworking and 
 - Exposed `--transport` in argument parsing with validation/error messaging, plus dynamic help output listing available runtime transports (`Sources/SwiftPie/SwiftPie.swift`).
 - Introduced CLI tests covering transport selection success/failure paths and ensured help output references the new flag (`Tests/SwiftPieTests/CLIRunnerTests.swift`).
 - Validated with `swift test --cache-path .cache --disable-sandbox` (passes under sandbox configuration without network access).
+
+## Work Log — Step 3
+- Implemented `NIOHTTPTransport`, a synchronous SwiftNIO client that reuses the existing request encoding helpers, honours timeout/TLS/http1Only options, and mirrors response decoding logic from the Foundation transport (`Sources/SwiftPie/NIOHTTPTransport.swift`).
+- Registered the NIO transport with the default registry so `--transport=nio` is now listed and can be selected at runtime; capability metadata flags TLS verification support for parity (`Sources/SwiftPie/Transport.swift`).
+- Extended CLI tests to cover NIO selection plus direct transport usage against the in-process test server (`Tests/SwiftPieTests/CLIRunnerTests.swift`).
+- Added a dedicated dependency wiring for SwiftNIO/NIOSSL in the package manifest to make the transport compile on Darwin today (`Package.swift`).
+- `swift test --cache-path .cache --disable-sandbox` builds successfully; execution of the new integration tests currently fails in the agent sandbox because binding a local test port returns `EPERM`. The tests are structured to pass once network permission is granted, so manual verification on an unrestricted host is still required.
+- Follow-up Linux fixes: transports now reuse a process-wide event loop group to avoid `syncShutdownGracefully()` deadlocks during ARC teardown, and the in-process HTTP server no longer prints lifecycle events so Linux test output stays concise (`Sources/SwiftPie/NIOHTTPTransport.swift`, `Tests/TestSupport/NIOHTTPTestServer.swift`).

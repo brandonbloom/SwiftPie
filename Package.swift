@@ -33,7 +33,11 @@ let package = Package(
             name: "SwiftPie",
             dependencies: [
                 .product(name: "HTTPTypes", package: "swift-http-types"),
-                .product(name: "Rainbow", package: "Rainbow")
+                .product(name: "Rainbow", package: "Rainbow"),
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl")
             ]
         ),
         .executableTarget(

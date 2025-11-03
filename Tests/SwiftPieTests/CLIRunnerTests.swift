@@ -7,6 +7,7 @@
 import Foundation
 import HTTPTypes
 import Testing
+import SwiftPieTestSupport
 @testable import SwiftPie
 
 @Suite("CLI runner")
@@ -1303,6 +1304,78 @@ struct CLIRunnerTests {
 
         #expect(exitCode == Int(EX_USAGE))
         #expect(console.error.contains("unknown option"))
+    }
+}
+
+@Suite("SwiftNIO transport")
+struct NIOTransportTests {
+    @Test("Standard registry exposes the NIO transport option")
+    func registryIncludesNIOTransport() {
+        let registry = TransportRegistry.standard
+        let identifiers = registry.selectableIdentifiers()
+        #expect(identifiers.contains(.nio))
+    }
+
+    @Test("Direct transport requests succeed against the in-process server")
+    func directRequestsSucceed() throws {
+        try withTestServer { server in
+            let registry = TransportRegistry.standard
+            let transport = try registry.makeTransport(for: .nio)
+
+            guard
+                let scheme = server.baseURL.scheme,
+                let host = server.baseURL.host
+            else {
+                Issue.record("Test server base URL is missing scheme or host.")
+                return
+            }
+
+            let authority: String
+            if let port = server.baseURL.port {
+                authority = "\(host):\(port)"
+            } else {
+                authority = host
+            }
+
+            let request = HTTPRequest(
+                method: .get,
+                scheme: scheme,
+                authority: authority,
+                path: "/get"
+            )
+
+            let payload = RequestPayload(
+                request: request,
+                data: [],
+                files: [],
+                headerRemovals: []
+            )
+
+            let response = try transport.send(payload, options: TransportOptions())
+            #expect(response.response.status == .ok)
+            switch response.body {
+            case .text(let text):
+                #expect(text.contains("\"url\""))
+            default:
+                Issue.record("Expected text body for /get response.")
+            }
+        }
+    }
+
+    @Test("CLI uses the NIO transport when selected via --transport")
+    func cliRunsRequestWithNIOTransport() throws {
+        try withTestServer { server in
+            let console = ConsoleRecorder()
+            let exitCode = SwiftPie.run(
+                arguments: ["spie", "--transport=nio", server.baseURL.appendingPathComponent("get").absoluteString],
+                context: CLIContext(console: console, input: NonInteractiveInput())
+            )
+
+            #expect(exitCode == 0)
+            #expect(console.output.contains("HTTP/1.1 200 OK"))
+            #expect(console.output.contains("\"url\""))
+            #expect(console.error.isEmpty)
+        }
     }
 }
 
